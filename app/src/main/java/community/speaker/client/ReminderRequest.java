@@ -10,7 +10,8 @@ final class ReminderRequest {
     private static final Pattern REQUEST = Pattern.compile(
             "(?:請幫我|幫我|請)?(.*?)後\\s*提醒我\\s*(.+)", Pattern.DOTALL);
     private static final Pattern SCHEDULED = Pattern.compile(
-            "(?:請幫我|幫我|請)?(今天|明天|後天)(凌晨|早上|上午|中午|下午|晚上)?"
+            "(?:請幫我|幫我|請)?(今天|明天|後天|下(?:週|周|星期|禮拜)(?:星期|禮拜)?[一二三四五六日天1-6]"
+                    + "|(?:星期|禮拜)[一二三四五六日天1-6])(凌晨|早上|上午|中午|下午|晚上)?"
                     + "([0-9]{1,2})(?:點鐘?|時)(半|[0-9]{1,2}分)?提醒我(.+)");
     final int seconds;
     final long dueAtMillis;
@@ -63,9 +64,11 @@ final class ReminderRequest {
 
             Calendar due = Calendar.getInstance(timeZone);
             due.setTimeInMillis(nowMillis);
-            int dayOffset = "今天".equals(scheduled.group(1)) ? 0
-                    : "明天".equals(scheduled.group(1)) ? 1 : 2;
-            due.add(Calendar.DAY_OF_YEAR, dayOffset);
+            String dateTerm = scheduled.group(1);
+            if ("今天".equals(dateTerm)) due.add(Calendar.DAY_OF_YEAR, 0);
+            else if ("明天".equals(dateTerm)) due.add(Calendar.DAY_OF_YEAR, 1);
+            else if ("後天".equals(dateTerm)) due.add(Calendar.DAY_OF_YEAR, 2);
+            else scheduleWeekday(due, dateTerm);
             due.set(Calendar.HOUR_OF_DAY, hour);
             due.set(Calendar.MINUTE, minute);
             due.set(Calendar.SECOND, 0);
@@ -73,7 +76,14 @@ final class ReminderRequest {
             due.setLenient(false);
             try {
                 long dueAtMillis = due.getTimeInMillis();
-                if (dueAtMillis <= nowMillis) return invalid();
+                if (dueAtMillis <= nowMillis) {
+                    if (isWeekday(dateTerm) && !isNextWeek(dateTerm)) {
+                        due.add(Calendar.DAY_OF_YEAR, 7);
+                        dueAtMillis = due.getTimeInMillis();
+                    } else {
+                        return invalid();
+                    }
+                }
                 return new ReminderRequest(0, dueAtMillis, message);
             } catch (IllegalArgumentException invalidTime) {
                 return invalid();
@@ -84,6 +94,46 @@ final class ReminderRequest {
 
     private static ReminderRequest invalid() {
         return new ReminderRequest(0, 0, "");
+    }
+
+    private static void scheduleWeekday(Calendar due, String dateTerm) {
+        int targetDay = weekdayIndex(dateTerm.charAt(dateTerm.length() - 1));
+        int currentDay = (due.get(Calendar.DAY_OF_WEEK) + 5) % 7;
+        int offset;
+        if (isNextWeek(dateTerm)) {
+            offset = 7 - currentDay + targetDay;
+        } else {
+            offset = (targetDay - currentDay + 7) % 7;
+        }
+        due.add(Calendar.DAY_OF_YEAR, offset);
+    }
+
+    private static boolean isWeekday(String dateTerm) {
+        return dateTerm.startsWith("下") || dateTerm.startsWith("星期") || dateTerm.startsWith("禮拜");
+    }
+
+    private static boolean isNextWeek(String dateTerm) {
+        return dateTerm.startsWith("下週") || dateTerm.startsWith("下周")
+                || dateTerm.startsWith("下星期") || dateTerm.startsWith("下禮拜");
+    }
+
+    private static int weekdayIndex(char day) {
+        switch (day) {
+            case '一': return 0;
+            case '二': return 1;
+            case '三': return 2;
+            case '四': return 3;
+            case '五': return 4;
+            case '六': return 5;
+            case '日': case '天': return 6;
+            case '1': return 0;
+            case '2': return 1;
+            case '3': return 2;
+            case '4': return 3;
+            case '5': return 4;
+            case '6': return 5;
+            default: throw new IllegalArgumentException("Unsupported weekday");
+        }
     }
 
     private static String replaceNumberBefore(String input, String unit) {
