@@ -70,10 +70,12 @@ public final class MainActivity extends AppCompatActivity {
     private String pendingSharedRead;
     private TextView chatGptStatus;
     private Button chatGptConnectionButton;
+    private Button replaySpeechButton;
     private ChatGptProvider chatGptProvider;
     private ServiceCredentialStore serviceCredentials;
     private String serviceCredentialError;
     private final ChatGptConversation chatGptConversation = new ChatGptConversation();
+    private final SpeechReplay speechReplay = new SpeechReplay();
     private final java.util.concurrent.ExecutorService chatGptExecutor =
             java.util.concurrent.Executors.newSingleThreadExecutor();
     private java.util.concurrent.Future<?> chatGptTask;
@@ -174,6 +176,9 @@ public final class MainActivity extends AppCompatActivity {
         addButton(section, "開始說話", this::requestVoiceInput,
                 com.google.android.material.R.attr.materialButtonStyle);
         addButton(section, "送出問題", this::answerLocalQuestion);
+        replaySpeechButton = addButton(section, "重播最近語音", this::replayRecentSpeech,
+                androidx.appcompat.R.attr.borderlessButtonStyle);
+        replaySpeechButton.setEnabled(false);
         chatGptStatus = label("", 15);
         chatGptStatus.setAccessibilityLiveRegion(TextView.ACCESSIBILITY_LIVE_REGION_POLITE);
         chatGptConnectionButton = addButton(section, "連結 ChatGPT", this::manageChatGpt);
@@ -985,11 +990,13 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void speakText(String text) {
+        stopSpeech();
         restoreChineseVoice();
-        enqueueSpeech(text);
+        enqueueSpeech(text, null);
     }
 
     private void speakTranslated(String text, String localeTag) {
+        stopSpeech();
         java.util.Locale locale = java.util.Locale.forLanguageTag(localeTag);
         Set<Voice> voices = tts == null ? null : tts.getVoices();
         Voice target = voices == null ? null : voices.stream()
@@ -1005,18 +1012,27 @@ public final class MainActivity extends AppCompatActivity {
             return;
         }
         translationVoiceActive = true;
-        enqueueSpeech(text);
+        enqueueSpeech(text, localeTag);
     }
 
-    private void enqueueSpeech(String text) {
+    private void replayRecentSpeech() {
+        SpeechReplay.Utterance utterance = speechReplay.latest();
+        if (utterance == null || !speechReady) return;
+        if (utterance.localeTag == null) speakText(utterance.text);
+        else speakTranslated(utterance.text, utterance.localeTag);
+    }
+
+    private void enqueueSpeech(String text, String localeTag) {
         if (text.length() > TextToSpeech.getMaxSpeechInputLength()) {
             restoreChineseVoice();
             speechStatus.setText("文字超過單次朗讀上限，請分段貼上。");
             return;
         }
+        speechReplay.remember(text, localeTag);
+        replaySpeechButton.setEnabled(true);
         if (!requestSpeechAudioFocus()) {
             restoreChineseVoice();
-            speechStatus.setText("目前無法取得音訊播放權，回答文字仍顯示在畫面。");
+            speechStatus.setText("目前無法取得音訊播放權，回答仍可稍後重播。");
             return;
         }
         activeUtterance = Integer.toString(++utteranceNumber);
@@ -1082,7 +1098,7 @@ public final class MainActivity extends AppCompatActivity {
         if (tts != null) tts.stop();
         restoreChineseVoice();
         abandonSpeechAudioFocus();
-        speechStatus.setText("其他音訊取得播放權，已停止語音朗讀；回答文字仍顯示在畫面。");
+        speechStatus.setText("其他音訊取得播放權，已停止朗讀；可按「重播最近語音」。");
     }
 
     private void stopSpeech() {
