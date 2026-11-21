@@ -40,8 +40,11 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.List;
 import java.util.Set;
 
 @SuppressLint("SetTextI18n") // The app currently provides a single Traditional Chinese interface.
@@ -113,6 +116,7 @@ public final class MainActivity extends AppCompatActivity {
     private boolean speechReady;
     private int utteranceNumber;
     private String activeUtterance;
+    private final Set<String> pendingSpeechUtterances = new HashSet<>();
 
     @Override
     protected void onCreate(Bundle state) {
@@ -288,7 +292,7 @@ public final class MainActivity extends AppCompatActivity {
         tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
             @Override public void onStart(String id) { }
             @Override public void onDone(String id) { finishSpeech(id, "朗讀完成。"); }
-            @Override public void onError(String id) { finishSpeech(id, "朗讀失敗。"); }
+            @Override public void onError(String id) { failSpeech(id); }
         });
         speechReady = true;
         speakButton.setEnabled(true);
@@ -1023,9 +1027,13 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void enqueueSpeech(String text, String localeTag) {
-        if (text.length() > TextToSpeech.getMaxSpeechInputLength()) {
+        if (text == null || text.trim().isEmpty()) return;
+        List<String> segments;
+        try {
+            segments = SpeechSegmenter.split(text, TextToSpeech.getMaxSpeechInputLength());
+        } catch (IllegalArgumentException invalidText) {
             restoreChineseVoice();
-            speechStatus.setText("文字超過單次朗讀上限，請分段貼上。");
+            speechStatus.setText("這段文字無法安全分段朗讀。");
             return;
         }
         speechReplay.remember(text, localeTag);
@@ -1035,17 +1043,45 @@ public final class MainActivity extends AppCompatActivity {
             speechStatus.setText("目前無法取得音訊播放權，回答仍可稍後重播。");
             return;
         }
-        activeUtterance = Integer.toString(++utteranceNumber);
-        speechStatus.setText("朗讀中。");
-        if (tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, activeUtterance) == TextToSpeech.ERROR) {
-            finishSpeech(activeUtterance, "朗讀失敗。");
+        String batch = Integer.toString(++utteranceNumber);
+        pendingSpeechUtterances.clear();
+        List<String> utteranceIds = new ArrayList<>(segments.size());
+        for (int index = 0; index < segments.size(); index++) {
+            String id = batch + ":" + index;
+            utteranceIds.add(id);
+            pendingSpeechUtterances.add(id);
         }
+        activeUtterance = utteranceIds.get(utteranceIds.size() - 1);
+        speechStatus.setText("朗讀中。");
+        for (int index = 0; index < segments.size(); index++) {
+            int queueMode = index == 0 ? TextToSpeech.QUEUE_FLUSH : TextToSpeech.QUEUE_ADD;
+            if (tts.speak(segments.get(index), queueMode, null, utteranceIds.get(index)) == TextToSpeech.ERROR) {
+                abortSpeech("朗讀失敗。");
+                return;
+            }
+        }
+    }
+
+    private void failSpeech(String id) {
+        runOnUiThread(() -> {
+            if (!isDestroyed() && pendingSpeechUtterances.contains(id)) abortSpeech("朗讀失敗。");
+        });
+    }
+
+    private void abortSpeech(String message) {
+        pendingSpeechUtterances.clear();
+        activeUtterance = null;
+        if (tts != null) tts.stop();
+        restoreChineseVoice();
+        abandonSpeechAudioFocus();
+        speechStatus.setText(message);
     }
 
     private void finishSpeech(String id, String message) {
         runOnUiThread(() -> {
-            if (!isDestroyed() && id != null && id.equals(activeUtterance)) {
+            if (!isDestroyed() && pendingSpeechUtterances.remove(id) && id.equals(activeUtterance)) {
                 activeUtterance = null;
+                pendingSpeechUtterances.clear();
                 restoreChineseVoice();
                 abandonSpeechAudioFocus();
                 speechStatus.setText(message);
@@ -1095,6 +1131,7 @@ public final class MainActivity extends AppCompatActivity {
     private void onSpeechAudioFocusChange(int focusChange) {
         if (activeUtterance == null || !AudioFocusPolicy.shouldStopSpeech(focusChange)) return;
         activeUtterance = null;
+        pendingSpeechUtterances.clear();
         if (tts != null) tts.stop();
         restoreChineseVoice();
         abandonSpeechAudioFocus();
@@ -1102,6 +1139,7 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void stopSpeech() {
+        pendingSpeechUtterances.clear();
         if (activeUtterance == null) {
             restoreChineseVoice();
             abandonSpeechAudioFocus();
@@ -1383,6 +1421,7 @@ public final class MainActivity extends AppCompatActivity {
         chatGptExecutor.shutdownNow();
         if (mailboxDialog != null) mailboxDialog.dismiss();
         activeUtterance = null;
+        pendingSpeechUtterances.clear();
         if (tts != null) tts.shutdown();
         super.onDestroy();
     }
