@@ -20,4 +20,9 @@ final class AudioFocusPolicy {
                 return Action.IGNORE;
         }
     }
+
+    static boolean shouldStopSpeech(int focusChange) {
+        Action action = actionFor(focusChange);
+        return action == Action.PAUSE || action == Action.STOP;
+    }
 }

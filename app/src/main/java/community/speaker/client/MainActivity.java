@@ -17,8 +17,10 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.media.AudioAttributes;
 import android.media.AudioDeviceCallback;
 import android.media.AudioDeviceInfo;
+import android.media.AudioFocusRequest;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Handler;
@@ -94,6 +96,9 @@ public final class MainActivity extends AppCompatActivity {
     private Button appearanceButton;
     private TextView audioStatus;
     private AudioManager audioManager;
+    private final AudioManager.OnAudioFocusChangeListener speechFocusListener = this::onSpeechAudioFocusChange;
+    private AudioFocusRequest speechFocusRequest;
+    private boolean speechFocusActive;
     private final AudioDeviceCallback audioDevices = new AudioDeviceCallback() {
         @Override public void onAudioDevicesAdded(AudioDeviceInfo[] added) { updateAudioStatus(); }
         @Override public void onAudioDevicesRemoved(AudioDeviceInfo[] removed) { updateAudioStatus(); }
@@ -271,6 +276,10 @@ public final class MainActivity extends AppCompatActivity {
             return;
         }
         chineseVoice = chinese;
+        tts.setAudioAttributes(new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build());
         tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
             @Override public void onStart(String id) { }
             @Override public void onDone(String id) { finishSpeech(id, "朗讀完成。"); }
@@ -1005,6 +1014,11 @@ public final class MainActivity extends AppCompatActivity {
             speechStatus.setText("文字超過單次朗讀上限，請分段貼上。");
             return;
         }
+        if (!requestSpeechAudioFocus()) {
+            restoreChineseVoice();
+            speechStatus.setText("目前無法取得音訊播放權，回答文字仍顯示在畫面。");
+            return;
+        }
         activeUtterance = Integer.toString(++utteranceNumber);
         speechStatus.setText("朗讀中。");
         if (tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, activeUtterance) == TextToSpeech.ERROR) {
@@ -1017,19 +1031,70 @@ public final class MainActivity extends AppCompatActivity {
             if (!isDestroyed() && id != null && id.equals(activeUtterance)) {
                 activeUtterance = null;
                 restoreChineseVoice();
+                abandonSpeechAudioFocus();
                 speechStatus.setText(message);
             }
         });
     }
 
+    @SuppressWarnings("deprecation")
+    private boolean requestSpeechAudioFocus() {
+        if (audioManager == null) return false;
+        int result;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            speechFocusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                    .setAudioAttributes(new AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                            .build())
+                    .setWillPauseWhenDucked(true)
+                    .setOnAudioFocusChangeListener(speechFocusListener)
+                    .build();
+            result = audioManager.requestAudioFocus(speechFocusRequest);
+        } else {
+            result = audioManager.requestAudioFocus(speechFocusListener,
+                    AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
+        }
+        speechFocusActive = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
+        if (!speechFocusActive) speechFocusRequest = null;
+        return speechFocusActive;
+    }
+
+    @SuppressWarnings("deprecation")
+    private void abandonSpeechAudioFocus() {
+        if (!speechFocusActive || audioManager == null) {
+            speechFocusRequest = null;
+            speechFocusActive = false;
+            return;
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && speechFocusRequest != null) {
+            audioManager.abandonAudioFocusRequest(speechFocusRequest);
+        } else {
+            audioManager.abandonAudioFocus(speechFocusListener);
+        }
+        speechFocusRequest = null;
+        speechFocusActive = false;
+    }
+
+    private void onSpeechAudioFocusChange(int focusChange) {
+        if (activeUtterance == null || !AudioFocusPolicy.shouldStopSpeech(focusChange)) return;
+        activeUtterance = null;
+        if (tts != null) tts.stop();
+        restoreChineseVoice();
+        abandonSpeechAudioFocus();
+        speechStatus.setText("其他音訊取得播放權，已停止語音朗讀；回答文字仍顯示在畫面。");
+    }
+
     private void stopSpeech() {
         if (activeUtterance == null) {
             restoreChineseVoice();
+            abandonSpeechAudioFocus();
             return;
         }
         activeUtterance = null;
         tts.stop();
         restoreChineseVoice();
+        abandonSpeechAudioFocus();
         speechStatus.setText("已停止朗讀。");
     }
 
