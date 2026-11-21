@@ -15,6 +15,8 @@ final class LocalAnswer {
     private static final MathContext PRECISION = MathContext.DECIMAL64;
     private static final Locale TAIWAN = Locale.TAIWAN;
     private static final Pattern DATE = Pattern.compile("(?:(\\d{4})年)?(\\d{1,2})月(\\d{1,2})[日號]");
+    private static final Pattern RELATIVE_DATE = Pattern.compile(
+            "(昨天|前天|今天|明天|後天)(?:是)?(?:日期|幾月幾日|幾月幾號|幾號|星期幾|禮拜幾)");
     private static final Pattern CONVERSION = Pattern.compile(
             "([+-]?(?:\\d+(?:\\.\\d+)?|\\.\\d+))([^0-9]+?)(?:等於|是多少|換算成|換成|是|有)(?:多少)?([^0-9]+)");
     private static final Pattern CHINESE_NUMBER = Pattern.compile("(?:[零〇一二三四五六七八九十百萬點]|(?<!台)兩|千(?!克|米))+");
@@ -52,8 +54,15 @@ final class LocalAnswer {
         if (query.matches("(現在)?(是)?幾點(鐘|了)?|現在時間")) {
             return "現在是" + formatted(now, "HH點mm分") + "。";
         }
-        if (query.matches("今天(是)?(日期|幾月幾日|幾月幾號|幾號|星期幾|禮拜幾)")) {
-            return formatted(now, "今天是yyyy年M月d日EEEE") + "。";
+        Matcher relativeDate = RELATIVE_DATE.matcher(query);
+        if (relativeDate.matches()) {
+            String period = relativeDate.group(1);
+            Calendar date = (Calendar) now.clone();
+            if ("昨天".equals(period)) date.add(Calendar.DATE, -1);
+            else if ("前天".equals(period)) date.add(Calendar.DATE, -2);
+            else if ("明天".equals(period)) date.add(Calendar.DATE, 1);
+            else if ("後天".equals(period)) date.add(Calendar.DATE, 2);
+            return formatted(date, period + "是yyyy年M月d日EEEE") + "。";
         }
         String calendarAnswer = CalendarMonthQuery.answer(query, now);
         if (calendarAnswer != null) return calendarAnswer;
