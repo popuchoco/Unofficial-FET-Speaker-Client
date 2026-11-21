@@ -55,6 +55,8 @@ final class LocalAnswer {
         if (query.matches("今天(是)?(日期|幾月幾日|幾月幾號|幾號|星期幾|禮拜幾)")) {
             return formatted(now, "今天是yyyy年M月d日EEEE") + "。";
         }
+        String calendarAnswer = CalendarMonthQuery.answer(query, now);
+        if (calendarAnswer != null) return calendarAnswer;
         String numeric = replaceChineseNumbers(query);
         LunarDateRequest lunarDate = LunarDateRequest.parse(numeric, now);
         if (lunarDate != null) {

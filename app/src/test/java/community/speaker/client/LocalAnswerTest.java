@@ -19,6 +19,7 @@ public class LocalAnswerTest {
         assertEquals("現在是19點05分。", answer("請問現在幾點？"));
         assertTrue(answer("今天星期幾").contains("2026年11月21日"));
         assertTrue(answer("二〇二四年二月二十九日是星期幾").contains("2024年2月29日"));
+        assertEquals("2024年2月有29天。", answer("查萬年曆2024年2月有幾天"));
         assertEquals("這個日期不存在，請再確認年月日。", answer("2025年2月29日星期幾"));
     }
 
