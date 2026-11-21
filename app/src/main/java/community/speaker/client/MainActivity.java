@@ -48,6 +48,8 @@ public final class MainActivity extends AppCompatActivity {
     private static final String LAST_DEVICE_NAME = "last_device_name";
     private static final String MOENV_KEY = "moenv_api_key";
     private static final String CWA_KEY = "cwa_api_key";
+    private static final String PAPAGO_CLIENT_ID = "papago_client_id";
+    private static final String PAPAGO_CLIENT_SECRET = "papago_client_secret";
     private static final String WEATHER_PLACE = "weather_place";
     private static final String[] APPEARANCES = { "跟隨系統", "淺色", "深色" };
     private static final int[] NIGHT_MODES = {
@@ -85,6 +87,8 @@ public final class MainActivity extends AppCompatActivity {
         @Override public void onAudioDevicesRemoved(AudioDeviceInfo[] removed) { updateAudioStatus(); }
     };
     private TextToSpeech tts;
+    private Voice chineseVoice;
+    private boolean translationVoiceActive;
     private BleInspector ble;
     private MediaKeyDiagnostic mediaKeys;
     private boolean speechReady;
@@ -141,6 +145,7 @@ public final class MainActivity extends AppCompatActivity {
         addLink("LINE GO 叫車", ServiceHandoff.TAXI.url);
         addButton(section, "設定空氣品質資料來源", this::configureAirQuality);
         addButton(section, "設定天氣資料來源", this::configureWeather);
+        addButton(section, "設定 Papago 翻譯 API", this::configurePapago);
 
         appearanceButton = addButton(content, "外觀 · " + APPEARANCES[appearance], this::chooseAppearance);
         LinearLayout diagnostics = new LinearLayout(this);
@@ -231,6 +236,7 @@ public final class MainActivity extends AppCompatActivity {
             speechStatus.setText("請在 Android 語音設定安裝可離線使用的中文語音。");
             return;
         }
+        chineseVoice = chinese;
         tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
             @Override public void onStart(String id) { }
             @Override public void onDone(String id) { finishSpeech(id, "朗讀完成。"); }
@@ -256,6 +262,15 @@ public final class MainActivity extends AppCompatActivity {
         String input = question.getText().toString().trim();
         if (input.isEmpty()) {
             voiceStatus.setText("請先說出或輸入問題。");
+            return;
+        }
+        TranslationRequest translation = TranslationRequest.parse(input);
+        if (translation != null) {
+            if (translation.error != null) {
+                speakAssistantStatus(translation.error);
+            } else {
+                translate(translation);
+            }
             return;
         }
         String wikiTopic = WikipediaLookup.topic(input);
@@ -390,6 +405,51 @@ public final class MainActivity extends AppCompatActivity {
                 .show();
     }
 
+    private void configurePapago() {
+        android.content.SharedPreferences settings = getPreferences(MODE_PRIVATE);
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(dp(24), 0, dp(24), 0);
+        EditText clientId = new TextInputEditText(this);
+        clientId.setHint("Naver Cloud Client ID");
+        clientId.setSingleLine(true);
+        clientId.setSaveEnabled(false);
+        clientId.setText(settings.getString(PAPAGO_CLIENT_ID, ""));
+        panel.addView(clientId);
+        EditText clientSecret = new TextInputEditText(this);
+        clientSecret.setHint("Naver Cloud Client Secret");
+        clientSecret.setSingleLine(true);
+        clientSecret.setSaveEnabled(false);
+        clientSecret.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        clientSecret.setText(settings.getString(PAPAGO_CLIENT_SECRET, ""));
+        panel.addView(clientSecret);
+        new MaterialAlertDialogBuilder(this).setTitle("Papago 翻譯 API")
+                .setMessage("請在 Naver Cloud 建立 Papago Translation API 應用並輸入自己的 Client ID 與 Secret。憑證只保存在此 App 的手機私有設定，僅在你明確要求翻譯時送往 Papago。服務依字數收費，請先在 Naver Cloud 設定用量上限。留空儲存可移除憑證。")
+                .setView(panel)
+                .setNeutralButton("官方 API 指引", (dialog, button) ->
+                        open(new Intent(Intent.ACTION_VIEW, Uri.parse("https://guide.ncloud-docs.com/docs/en/papagotranslation-procedure"))))
+                .setNegativeButton("取消", null)
+                .setPositiveButton("儲存", (dialog, button) -> settings.edit()
+                        .putString(PAPAGO_CLIENT_ID, clientId.getText().toString().trim())
+                        .putString(PAPAGO_CLIENT_SECRET, clientSecret.getText().toString().trim()).apply())
+                .show();
+    }
+
+    private void translate(TranslationRequest request) {
+        android.content.SharedPreferences settings = getPreferences(MODE_PRIVATE);
+        String clientId = settings.getString(PAPAGO_CLIENT_ID, "");
+        String clientSecret = settings.getString(PAPAGO_CLIENT_SECRET, "");
+        if (clientId.isEmpty() || clientSecret.isEmpty()) {
+            speakAssistantStatus("請先在服務設定輸入自己的 Papago API 憑證，再試一次翻譯。");
+            return;
+        }
+        startLookup("正在使用 Papago 翻譯…",
+                "Papago 翻譯失敗，請確認網路、API 憑證或 Naver Cloud 用量上限。",
+                PapagoLookup.SOURCE,
+                () -> PapagoLookup.search(request, clientId, clientSecret));
+    }
+
     private void lookupWikipedia(String topic) {
         if (topic.isEmpty() || topic.length() > 120) {
             voiceStatus.setText("請說出要查詢的詞條名稱，例如查維基百科台北101。");
@@ -425,7 +485,13 @@ public final class MainActivity extends AppCompatActivity {
                 lookupSourceUrl = answer.source;
                 lookupSource.setVisibility(lookupSourceUrl == null ? View.GONE : View.VISIBLE);
                 voiceStatus.setText(answer.text);
-                if (speechReady) speakText(answer.text);
+                if (speechReady) {
+                    if (answer.speechText != null && answer.speechLocale != null) {
+                        speakTranslated(answer.speechText, answer.speechLocale);
+                    } else {
+                        speakText(answer.text);
+                    }
+                }
             });
         });
     }
@@ -623,7 +689,32 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void speakText(String text) {
+        restoreChineseVoice();
+        enqueueSpeech(text);
+    }
+
+    private void speakTranslated(String text, String localeTag) {
+        java.util.Locale locale = java.util.Locale.forLanguageTag(localeTag);
+        Set<Voice> voices = tts == null ? null : tts.getVoices();
+        Voice target = voices == null ? null : voices.stream()
+                .filter(voice -> !voice.isNetworkConnectionRequired())
+                .filter(voice -> !voice.getFeatures().contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED))
+                .filter(voice -> voice.getLocale().getLanguage().equals(locale.getLanguage()))
+                .min(Comparator.comparing(voice -> !voice.getLocale().getCountry().equals(locale.getCountry())))
+                .orElse(null);
+        if (target == null || tts.setVoice(target) != TextToSpeech.SUCCESS) {
+            voiceStatus.append("\n此裝置沒有已安裝的離線目標語音，譯文保留在畫面。");
+            speechStatus.setText("此裝置沒有該語言的離線語音。");
+            restoreChineseVoice();
+            return;
+        }
+        translationVoiceActive = true;
+        enqueueSpeech(text);
+    }
+
+    private void enqueueSpeech(String text) {
         if (text.length() > TextToSpeech.getMaxSpeechInputLength()) {
+            restoreChineseVoice();
             speechStatus.setText("文字超過單次朗讀上限，請分段貼上。");
             return;
         }
@@ -638,16 +729,27 @@ public final class MainActivity extends AppCompatActivity {
         runOnUiThread(() -> {
             if (!isDestroyed() && id != null && id.equals(activeUtterance)) {
                 activeUtterance = null;
+                restoreChineseVoice();
                 speechStatus.setText(message);
             }
         });
     }
 
     private void stopSpeech() {
-        if (activeUtterance == null) return;
+        if (activeUtterance == null) {
+            restoreChineseVoice();
+            return;
+        }
         activeUtterance = null;
         tts.stop();
+        restoreChineseVoice();
         speechStatus.setText("已停止朗讀。");
+    }
+
+    private void restoreChineseVoice() {
+        if (!translationVoiceActive) return;
+        translationVoiceActive = false;
+        if (tts != null && chineseVoice != null) tts.setVoice(chineseVoice);
     }
 
     private EditText addTextInput(String hint) {
