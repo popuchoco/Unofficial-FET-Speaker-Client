@@ -4,33 +4,16 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 final class WikipediaLookup {
     private static final String HOST = "https://zh.wikipedia.org";
-    private static final String USER_AGENT =
-            "UnofficialFETSpeakerClient/0.1 (https://github.com/popuchoco/Unofficial-FET-Speaker-Client)";
     private static final Pattern ASK = Pattern.compile(
             "^(?:(?:請幫我|幫我|請)\\s*)?(?:(?:搜尋|查詢|查一下|查)\\s*)?(?:維基百科|維基)(?:\\s*(?:搜尋|查詢|查一下|查))?[：:]?\\s*(.*)$",
             Pattern.DOTALL);
-
-    static final class Answer {
-        final String text;
-        final String source;
-
-        Answer(String text, String source) {
-            this.text = text;
-            this.source = source;
-        }
-    }
 
     private WikipediaLookup() {}
 
@@ -40,11 +23,11 @@ final class WikipediaLookup {
         return match.group(1).trim().replaceFirst("[。？！?!]+$", "").trim();
     }
 
-    static Answer search(String topic) throws IOException, JSONException {
+    static LookupAnswer search(String topic) throws IOException, JSONException {
         JSONObject results = get(HOST + "/w/rest.php/v1/search/page?q="
                 + URLEncoder.encode(topic, "UTF-8") + "&limit=3");
         JSONArray pages = results.getJSONArray("pages");
-        if (pages.length() == 0) return new Answer("維基百科找不到符合的詞條。", null);
+        if (pages.length() == 0) return new LookupAnswer("維基百科找不到符合的詞條。", null);
 
         JSONObject page = choose(pages, topic);
         if (page == null) return alternatives(pages);
@@ -56,14 +39,14 @@ final class WikipediaLookup {
         JSONObject article = query.getJSONObject("query").getJSONArray("pages").getJSONObject(0);
         JSONObject properties = article.optJSONObject("pageprops");
         if (properties != null && properties.has("disambiguation")) {
-            return new Answer("這是消歧義詞條，請用更完整的名稱重新查詢。", source);
+            return new LookupAnswer("這是消歧義詞條，請用更完整的名稱重新查詢。", source);
         }
         String snippet = article.isNull("extract") ? "" : article.optString("extract").trim();
         if (snippet.isEmpty() && !page.isNull("description")) snippet = page.optString("description").trim();
         if (snippet.isEmpty()) {
-            return new Answer("找到維基百科詞條「" + article.getString("title") + "」，目前沒有可播報的摘要。", source);
+            return new LookupAnswer("找到維基百科詞條「" + article.getString("title") + "」，目前沒有可播報的摘要。", source);
         }
-        return new Answer("根據維基百科，" + snippet, source);
+        return new LookupAnswer("根據維基百科，" + snippet, source);
     }
 
     private static JSONObject choose(JSONArray pages, String topic) throws JSONException {
@@ -78,36 +61,15 @@ final class WikipediaLookup {
         return title.replaceAll("[\\s\\p{Z}_]", "");
     }
 
-    private static Answer alternatives(JSONArray pages) throws JSONException {
+    private static LookupAnswer alternatives(JSONArray pages) throws JSONException {
         java.util.StringJoiner names = new java.util.StringJoiner("、");
         for (int index = 0; index < pages.length(); index++) {
             names.add(pages.getJSONObject(index).getString("title"));
         }
-        return new Answer("找到多個詞條，請用完整名稱重新查詢。" + names + "。", null);
+        return new LookupAnswer("找到多個詞條，請用完整名稱重新查詢。" + names + "。", null);
     }
 
     private static JSONObject get(String url) throws IOException, JSONException {
-        HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
-        connection.setInstanceFollowRedirects(false);
-        connection.setConnectTimeout(5000);
-        connection.setReadTimeout(5000);
-        connection.setRequestProperty("User-Agent", USER_AGENT);
-        connection.setRequestProperty("Accept", "application/json");
-        connection.setRequestProperty("Accept-Language", "zh-TW");
-        try {
-            if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) throw new IOException("Wikipedia HTTP error");
-            try (InputStream input = connection.getInputStream();
-                 ByteArrayOutputStream data = new ByteArrayOutputStream()) {
-                byte[] chunk = new byte[4096];
-                int length;
-                while ((length = input.read(chunk)) != -1) {
-                    if (data.size() + length > 128 * 1024) throw new IOException("Wikipedia response exceeds limit");
-                    data.write(chunk, 0, length);
-                }
-                return new JSONObject(new String(data.toByteArray(), StandardCharsets.UTF_8));
-            }
-        } finally {
-            connection.disconnect();
-        }
+        return new JSONObject(PublicDataClient.get(url, "application/json", 128 * 1024));
     }
 }

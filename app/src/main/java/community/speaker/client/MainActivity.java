@@ -60,8 +60,8 @@ public final class MainActivity extends AppCompatActivity {
     private EditText question;
     private VoiceInput voiceInput;
     private TextView voiceStatus;
-    private Button wikipediaSource;
-    private String articleUrl;
+    private Button lookupSource;
+    private String lookupSourceUrl;
     private final java.util.concurrent.ExecutorService lookupExecutor = java.util.concurrent.Executors.newSingleThreadExecutor();
     private java.util.concurrent.Future<?> lookupTask;
     private int lookupGeneration;
@@ -166,10 +166,10 @@ public final class MainActivity extends AppCompatActivity {
             answerLocalQuestion();
         });
         addButton(section, "測試助理指令", this::answerLocalQuestion);
-        wikipediaSource = addButton(section, "開啟維基百科來源", () -> {
-            if (articleUrl != null) open(new Intent(Intent.ACTION_VIEW, Uri.parse(articleUrl)));
+        lookupSource = addButton(section, "開啟資料來源", () -> {
+            if (lookupSourceUrl != null) open(new Intent(Intent.ACTION_VIEW, Uri.parse(lookupSourceUrl)));
         }, androidx.appcompat.R.attr.borderlessButtonStyle);
-        wikipediaSource.setVisibility(View.GONE);
+        lookupSource.setVisibility(View.GONE);
         addButton(section, "開始語音輸入", this::requestVoiceInput);
         addButton(section, "取消語音輸入", voiceInput::cancel, androidx.appcompat.R.attr.borderlessButtonStyle);
         addButton(section, "複製問題", this::copyQuestion, androidx.appcompat.R.attr.borderlessButtonStyle);
@@ -261,6 +261,16 @@ public final class MainActivity extends AppCompatActivity {
             requestReminder(reminder);
             return;
         }
+        String stock = StockLookup.symbol(input);
+        if (stock != null) {
+            if (stock.isEmpty() || stock.length() > 40) {
+                voiceStatus.setText("請說出股票代號或名稱，例如查台股2330。");
+            } else {
+                startLookup("正在查詢台股收盤資料…", "無法取得台股收盤資料，請稍後再試。",
+                        () -> StockLookup.search(stock));
+            }
+            return;
+        }
         ClockRequest clock = ClockRequest.parse(input);
         if (clock != null) {
             handleClockRequest(clock);
@@ -280,21 +290,31 @@ public final class MainActivity extends AppCompatActivity {
             voiceStatus.setText("請說出要查詢的詞條名稱，例如查維基百科台北101。");
             return;
         }
+        startLookup("正在查詢維基百科…", "無法取得維基百科資料，請稍後再試。",
+                () -> WikipediaLookup.search(topic));
+    }
+
+    private interface Lookup {
+        LookupAnswer fetch() throws java.io.IOException, org.json.JSONException;
+    }
+
+    private void startLookup(String loading, String failure, Lookup lookup) {
+        stopSpeech();
         int generation = lookupGeneration;
-        voiceStatus.setText("正在查詢維基百科…");
+        voiceStatus.setText(loading);
         lookupTask = lookupExecutor.submit(() -> {
-            WikipediaLookup.Answer response;
+            LookupAnswer response;
             try {
-                response = WikipediaLookup.search(topic);
+                response = lookup.fetch();
             } catch (java.io.IOException | org.json.JSONException error) {
-                response = new WikipediaLookup.Answer("無法取得維基百科資料，請稍後再試。", null);
+                response = new LookupAnswer(failure, null);
             }
-            WikipediaLookup.Answer answer = response;
+            LookupAnswer answer = response;
             runOnUiThread(() -> {
                 if (lookupGeneration != generation || isDestroyed()) return;
                 lookupTask = null;
-                articleUrl = answer.source;
-                wikipediaSource.setVisibility(articleUrl == null ? View.GONE : View.VISIBLE);
+                lookupSourceUrl = answer.source;
+                lookupSource.setVisibility(lookupSourceUrl == null ? View.GONE : View.VISIBLE);
                 voiceStatus.setText(answer.text);
                 if (speechReady) speakText(answer.text);
             });
@@ -308,8 +328,8 @@ public final class MainActivity extends AppCompatActivity {
             lookupTask = null;
             voiceStatus.setText("已取消查詢。");
         }
-        articleUrl = null;
-        if (wikipediaSource != null) wikipediaSource.setVisibility(View.GONE);
+        lookupSourceUrl = null;
+        if (lookupSource != null) lookupSource.setVisibility(View.GONE);
     }
 
     private void requestReminder(ReminderRequest request) {
