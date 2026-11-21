@@ -23,6 +23,9 @@ public class LocalAnswerTest {
         assertEquals("後天是2026年11月23日星期一。", answer("後天禮拜幾"));
         assertEquals("前天是2026年11月19日星期四。", answer("前天日期"));
         assertTrue(answer("二〇二四年二月二十九日是星期幾").contains("2024年2月29日"));
+        assertEquals("2024年2月29日是星期四。", answer("2024/2/29是星期幾"));
+        assertEquals("2024年2月29日是星期四。", answer("2024-2-29禮拜幾"));
+        assertEquals("2026年11月22日是星期日。", answer("11/22星期幾"));
         assertEquals("2024年2月有29天。", answer("查萬年曆2024年2月有幾天"));
         assertEquals("2026年11月第3個星期五是20日。",
                 answer("查萬年曆2026年11月第三個星期五"));
@@ -30,6 +33,7 @@ public class LocalAnswerTest {
         assertEquals("下週一是2026年11月23日星期一。", answer("下週一是幾號"));
         assertEquals("上週日是2026年11月15日星期日。", answer("上週星期日日期"));
         assertEquals("這個日期不存在，請再確認年月日。", answer("2025年2月29日星期幾"));
+        assertEquals("這個日期不存在，請再確認年月日。", answer("2025-2-29星期幾"));
     }
 
     @Test public void weekDateQueriesCrossMonthAndYearBoundaries() {

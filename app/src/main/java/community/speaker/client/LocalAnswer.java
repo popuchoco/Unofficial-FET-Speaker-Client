@@ -14,7 +14,8 @@ import java.util.regex.Pattern;
 final class LocalAnswer {
     private static final MathContext PRECISION = MathContext.DECIMAL64;
     private static final Locale TAIWAN = Locale.TAIWAN;
-    private static final Pattern DATE = Pattern.compile("(?:(\\d{4})年)?(\\d{1,2})月(\\d{1,2})[日號]");
+    private static final Pattern DATE = Pattern.compile(
+            "(?:(\\d{4})年|(\\d{4})[/-])?(\\d{1,2})(?:月|[/-])(\\d{1,2})[日號]?");
     private static final Pattern RELATIVE_DATE = Pattern.compile(
             "(昨天|前天|今天|明天|後天)(?:是)?(?:日期|幾月幾日|幾月幾號|幾號|星期幾|禮拜幾)");
     private static final Pattern CONVERSION = Pattern.compile(
@@ -76,8 +77,9 @@ final class LocalAnswer {
             Calendar day = (Calendar) now.clone();
             day.setLenient(false);
             try {
-                int year = date.group(1) == null ? day.get(Calendar.YEAR) : Integer.parseInt(date.group(1));
-                day.set(year, Integer.parseInt(date.group(2)) - 1, Integer.parseInt(date.group(3)));
+                String yearText = date.group(1) == null ? date.group(2) : date.group(1);
+                int year = yearText == null ? day.get(Calendar.YEAR) : Integer.parseInt(yearText);
+                day.set(year, Integer.parseInt(date.group(3)) - 1, Integer.parseInt(date.group(4)));
                 return formatted(day, "yyyy年M月d日是EEEE") + "。";
             } catch (IllegalArgumentException invalidDate) {
                 return "這個日期不存在，請再確認年月日。";
