@@ -366,6 +366,12 @@ public final class MainActivity extends AppCompatActivity {
             voiceStatus.setText("請先說出或輸入問題。");
             return;
         }
+        MailboxMessageRequest messageRequest = MailboxMessageRequest.parse(input);
+        if (messageRequest != null) {
+            showMailbox();
+            handleMailboxMessageRequest(messageRequest);
+            return;
+        }
         LocalActionRequest.Action localAction = LocalActionRequest.parse(input);
         if (localAction == LocalActionRequest.Action.OPEN_REMINDERS) {
             showReminders();
@@ -974,18 +980,52 @@ public final class MainActivity extends AppCompatActivity {
                         mailboxStatus.setText("正在播放留言。");
                         voiceMessages.play(recording, mailboxStatus::setText);
                     } else {
-                        new MaterialAlertDialogBuilder(this).setTitle("刪除這段留言？")
-                                .setNegativeButton("保留", null)
-                                .setPositiveButton("刪除", (confirmation, button) -> {
-                                    if (voiceMessages.delete(recording)) {
-                                        refreshMailbox();
-                                        mailboxStatus.setText("已刪除留言。");
-                                    } else {
-                                        mailboxStatus.setText("無法刪除留言。");
-                                    }
-                                }).show();
+                        confirmDeleteMessage(recording, title);
                     }
                 }).setNegativeButton("關閉", null).show();
+    }
+
+    private void handleMailboxMessageRequest(MailboxMessageRequest request) {
+        if (voiceMessages.isRecording()) {
+            mailboxStatus.setText("請先儲存或取消此次錄音。");
+            return;
+        }
+        try {
+            java.util.List<java.io.File> recordings = voiceMessages.list();
+            int index = request.number - 1;
+            if (index < 0 || index >= recordings.size()) {
+                String message = recordings.isEmpty() ? "目前沒有可使用的留言。"
+                        : "找不到第" + request.number + "則留言。";
+                mailboxStatus.setText(message);
+                speakAssistantStatus(message);
+                return;
+            }
+            java.io.File recording = recordings.get(index);
+            String title = "留言 " + request.number;
+            if (request.action == MailboxMessageRequest.Action.PLAY) {
+                stopSpeech();
+                mailboxStatus.setText("正在播放" + title + "。");
+                voiceMessages.play(recording, mailboxStatus::setText);
+            } else {
+                confirmDeleteMessage(recording, title);
+            }
+        } catch (java.io.IOException error) {
+            mailboxStatus.setText("無法載入家庭留言。");
+        }
+    }
+
+    private void confirmDeleteMessage(java.io.File recording, String title) {
+        new MaterialAlertDialogBuilder(this).setTitle("刪除「" + title + "」？")
+                .setNegativeButton("保留", null)
+                .setPositiveButton("刪除", (confirmation, button) -> {
+                    if (voiceMessages.delete(recording)) {
+                        refreshMailbox();
+                        mailboxStatus.setText("已刪除留言。");
+                    } else {
+                        mailboxStatus.setText("無法刪除留言。");
+                    }
+                }).show();
+        speakAssistantStatus("請在畫面確認是否刪除這段留言。");
     }
 
     private void handleClockRequest(ClockRequest request) {
