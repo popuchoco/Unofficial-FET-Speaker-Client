@@ -26,6 +26,7 @@ import android.view.View;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.provider.AlarmClock;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
 import android.speech.tts.Voice;
@@ -229,6 +230,11 @@ public final class MainActivity extends AppCompatActivity {
             voiceStatus.setText("請先說出或輸入問題。");
             return;
         }
+        ClockRequest clock = ClockRequest.parse(input);
+        if (clock != null) {
+            handleClockRequest(clock);
+            return;
+        }
         String answer = LocalAnswer.reply(input, java.util.Calendar.getInstance());
         if (answer == null) {
             voiceStatus.setText("這個問題目前無法離線回答。");
@@ -236,6 +242,30 @@ public final class MainActivity extends AppCompatActivity {
         }
         voiceStatus.setText(answer);
         if (speechReady) speakText(answer);
+    }
+
+    private void handleClockRequest(ClockRequest request) {
+        if (request.kind == ClockRequest.Kind.CLARIFICATION) {
+            voiceStatus.setText(request.prompt);
+            if (speechReady) speakText(request.prompt);
+            return;
+        }
+        Intent intent;
+        if (request.kind == ClockRequest.Kind.ALARM) {
+            intent = new Intent(AlarmClock.ACTION_SET_ALARM)
+                    .putExtra(AlarmClock.EXTRA_HOUR, request.hour)
+                    .putExtra(AlarmClock.EXTRA_MINUTES, request.minute);
+        } else {
+            intent = new Intent(AlarmClock.ACTION_SET_TIMER)
+                    .putExtra(AlarmClock.EXTRA_LENGTH, request.seconds);
+        }
+        intent.putExtra(AlarmClock.EXTRA_SKIP_UI, false);
+        try {
+            startActivity(intent);
+            voiceStatus.setText("已開啟 Android 時鐘，請確認設定。");
+        } catch (ActivityNotFoundException | SecurityException error) {
+            voiceStatus.setText("這台裝置沒有可處理此指令的 Android 時鐘。");
+        }
     }
 
     private void speakText(String text) {

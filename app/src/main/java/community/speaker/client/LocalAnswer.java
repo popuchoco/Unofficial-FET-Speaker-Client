@@ -153,7 +153,7 @@ final class LocalAnswer {
         return number.round(new MathContext(10)).stripTrailingZeros().toPlainString();
     }
 
-    private static String replaceChineseNumbers(String input) {
+    static String replaceChineseNumbers(String input) {
         Matcher matcher = CHINESE_NUMBER.matcher(input);
         StringBuffer result = new StringBuffer();
         while (matcher.find()) {
