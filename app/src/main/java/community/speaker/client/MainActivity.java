@@ -12,6 +12,8 @@ import com.google.android.material.textfield.TextInputLayout;
 import com.google.android.material.textview.MaterialTextView;
 import android.bluetooth.BluetoothDevice;
 import android.content.ActivityNotFoundException;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -33,6 +35,7 @@ import java.util.Set;
 
 public final class MainActivity extends AppCompatActivity {
     private static final int BLE_PERMISSIONS = 42;
+    private static final int MICROPHONE_PERMISSION = 43;
     private static final String[] APPEARANCES = { "跟隨系統", "淺色", "深色" };
     private static final int[] NIGHT_MODES = {
             AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM,
@@ -44,6 +47,9 @@ public final class MainActivity extends AppCompatActivity {
     private LinearLayout content;
     private LinearLayout devices;
     private EditText reply;
+    private EditText question;
+    private VoiceInput voiceInput;
+    private TextView voiceStatus;
     private TextView speechStatus;
     private TextView bluetoothStatus;
     private Button speakButton;
@@ -88,18 +94,23 @@ public final class MainActivity extends AppCompatActivity {
         addLink("開啟 Gemini", "https://gemini.google.com/app");
         addLink("開啟 Claude", "https://claude.ai/");
 
+        startSection("語音提問");
+        question = addTextInput("輸入或辨識問題");
+        voiceStatus = label("", 15);
+        voiceStatus.setAccessibilityLiveRegion(TextView.ACCESSIBILITY_LIVE_REGION_POLITE);
+        voiceInput = new VoiceInput(this, voiceStatus::setText, question::setText);
+        addButton(section, "開始語音輸入", this::requestVoiceInput);
+        addButton(section, "取消語音輸入", voiceInput::cancel, androidx.appcompat.R.attr.borderlessButtonStyle);
+        addButton(section, "複製問題", this::copyQuestion, androidx.appcompat.R.attr.borderlessButtonStyle);
+
         startSection("朗讀回覆");
-        TextInputLayout field = new TextInputLayout(this, null, com.google.android.material.R.attr.textInputOutlinedStyle);
-        field.setHint("貼上要朗讀的文字");
-        reply = new TextInputEditText(field.getContext());
-        reply.setSaveEnabled(false);
-        reply.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-        reply.setGravity(android.view.Gravity.TOP | android.view.Gravity.START);
-        reply.setMinLines(3);
-        field.addView(reply);
-        section.addView(field);
-        Object retainedReply = getLastCustomNonConfigurationInstance();
-        if (retainedReply instanceof String) reply.setText((String) retainedReply);
+        reply = addTextInput("貼上要朗讀的文字");
+        Object retained = getLastCustomNonConfigurationInstance();
+        if (retained instanceof String[]) {
+            String[] drafts = (String[]) retained;
+            reply.setText(drafts[0]);
+            question.setText(drafts[1]);
+        }
         speakButton = addButton(section, "朗讀", this::speak, com.google.android.material.R.attr.materialButtonStyle);
         speakButton.setEnabled(false);
         addButton(section, "停止朗讀", this::stopSpeech, androidx.appcompat.R.attr.borderlessButtonStyle);
@@ -179,6 +190,41 @@ public final class MainActivity extends AppCompatActivity {
         speechStatus.setText("已停止朗讀。");
     }
 
+    private EditText addTextInput(String hint) {
+        TextInputLayout field = new TextInputLayout(this, null, com.google.android.material.R.attr.textInputOutlinedStyle);
+        field.setHint(hint);
+        EditText editor = new TextInputEditText(field.getContext());
+        editor.setSaveEnabled(false);
+        editor.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        editor.setGravity(android.view.Gravity.TOP | android.view.Gravity.START);
+        editor.setMinLines(3);
+        field.addView(editor);
+        section.addView(field);
+        return editor;
+    }
+
+    private void requestVoiceInput() {
+        if (!voiceInput.isAvailable()) {
+            voiceStatus.setText("此裝置目前沒有可用的離線語音辨識，可直接輸入文字。");
+        } else if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[] { Manifest.permission.RECORD_AUDIO }, MICROPHONE_PERMISSION);
+        } else {
+            stopSpeech();
+            voiceInput.start();
+        }
+    }
+
+    private void copyQuestion() {
+        String text = question.getText().toString().trim();
+        if (text.isEmpty()) {
+            voiceStatus.setText("請先輸入問題。");
+            return;
+        }
+        ClipboardManager clipboard = getSystemService(ClipboardManager.class);
+        clipboard.setPrimaryClip(ClipData.newPlainText("語音提問", text));
+        voiceStatus.setText("已複製，可貼到官方對話頁面。");
+    }
+
     private String[] scanPermissions() {
         if (Build.VERSION.SDK_INT >= 31) {
             return new String[] { Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT };
@@ -205,6 +251,14 @@ public final class MainActivity extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int request, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(request, permissions, results);
+        if (request == MICROPHONE_PERMISSION) {
+            if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                requestVoiceInput();
+            } else {
+                voiceStatus.setText("未允許使用麥克風，可直接輸入文字。");
+            }
+            return;
+        }
         if (request != BLE_PERMISSIONS) return;
         for (String permission : scanPermissions()) {
             if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
@@ -249,7 +303,7 @@ public final class MainActivity extends AppCompatActivity {
 
     @Override
     public Object onRetainCustomNonConfigurationInstance() {
-        return reply == null ? null : reply.getText().toString();
+        return reply == null ? null : new String[] { reply.getText().toString(), question.getText().toString() };
     }
 
     private void startSection(String title) {
@@ -304,6 +358,7 @@ public final class MainActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         if (ble != null) ble.pause();
+        if (voiceInput != null) voiceInput.cancel();
         super.onStop();
     }
 
