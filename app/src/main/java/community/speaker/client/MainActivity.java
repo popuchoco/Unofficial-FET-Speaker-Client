@@ -60,6 +60,11 @@ public final class MainActivity extends AppCompatActivity {
     private EditText question;
     private VoiceInput voiceInput;
     private TextView voiceStatus;
+    private Button wikipediaSource;
+    private String articleUrl;
+    private final java.util.concurrent.ExecutorService lookupExecutor = java.util.concurrent.Executors.newSingleThreadExecutor();
+    private java.util.concurrent.Future<?> lookupTask;
+    private int lookupGeneration;
     private ReminderRequest pendingReminder;
     private VoiceMessages voiceMessages;
     private androidx.appcompat.app.AlertDialog mailboxDialog;
@@ -160,7 +165,11 @@ public final class MainActivity extends AppCompatActivity {
             question.setText(transcript);
             answerLocalQuestion();
         });
-        addButton(section, "測試離線問答", this::answerLocalQuestion);
+        addButton(section, "測試助理指令", this::answerLocalQuestion);
+        wikipediaSource = addButton(section, "開啟維基百科來源", () -> {
+            if (articleUrl != null) open(new Intent(Intent.ACTION_VIEW, Uri.parse(articleUrl)));
+        }, androidx.appcompat.R.attr.borderlessButtonStyle);
+        wikipediaSource.setVisibility(View.GONE);
         addButton(section, "開始語音輸入", this::requestVoiceInput);
         addButton(section, "取消語音輸入", voiceInput::cancel, androidx.appcompat.R.attr.borderlessButtonStyle);
         addButton(section, "複製問題", this::copyQuestion, androidx.appcompat.R.attr.borderlessButtonStyle);
@@ -236,9 +245,15 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void answerLocalQuestion() {
+        cancelLookup();
         String input = question.getText().toString().trim();
         if (input.isEmpty()) {
             voiceStatus.setText("請先說出或輸入問題。");
+            return;
+        }
+        String wikiTopic = WikipediaLookup.topic(input);
+        if (wikiTopic != null) {
+            lookupWikipedia(wikiTopic);
             return;
         }
         ReminderRequest reminder = ReminderRequest.parse(input);
@@ -258,6 +273,43 @@ public final class MainActivity extends AppCompatActivity {
         }
         voiceStatus.setText(answer);
         if (speechReady) speakText(answer);
+    }
+
+    private void lookupWikipedia(String topic) {
+        if (topic.isEmpty() || topic.length() > 120) {
+            voiceStatus.setText("請說出要查詢的詞條名稱，例如查維基百科台北101。");
+            return;
+        }
+        int generation = lookupGeneration;
+        voiceStatus.setText("正在查詢維基百科…");
+        lookupTask = lookupExecutor.submit(() -> {
+            WikipediaLookup.Answer response;
+            try {
+                response = WikipediaLookup.search(topic);
+            } catch (java.io.IOException | org.json.JSONException error) {
+                response = new WikipediaLookup.Answer("無法取得維基百科資料，請稍後再試。", null);
+            }
+            WikipediaLookup.Answer answer = response;
+            runOnUiThread(() -> {
+                if (lookupGeneration != generation || isDestroyed()) return;
+                lookupTask = null;
+                articleUrl = answer.source;
+                wikipediaSource.setVisibility(articleUrl == null ? View.GONE : View.VISIBLE);
+                voiceStatus.setText(answer.text);
+                if (speechReady) speakText(answer.text);
+            });
+        });
+    }
+
+    private void cancelLookup() {
+        lookupGeneration++;
+        if (lookupTask != null) {
+            lookupTask.cancel(true);
+            lookupTask = null;
+            voiceStatus.setText("已取消查詢。");
+        }
+        articleUrl = null;
+        if (wikipediaSource != null) wikipediaSource.setVisibility(View.GONE);
     }
 
     private void requestReminder(ReminderRequest request) {
@@ -488,6 +540,7 @@ public final class MainActivity extends AppCompatActivity {
         } else if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[] { Manifest.permission.RECORD_AUDIO }, MICROPHONE_PERMISSION);
         } else {
+            cancelLookup();
             stopSpeech();
             voiceInput.start();
         }
@@ -700,6 +753,7 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void stopDiagnostics() {
+        cancelLookup();
         if (ble != null) ble.pause();
         if (mediaKeys != null) mediaKeys.stop("已結束按鍵測試。");
         if (voiceInput != null) voiceInput.cancel();
@@ -720,6 +774,7 @@ public final class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        lookupExecutor.shutdownNow();
         if (mailboxDialog != null) mailboxDialog.dismiss();
         activeUtterance = null;
         if (tts != null) tts.shutdown();
