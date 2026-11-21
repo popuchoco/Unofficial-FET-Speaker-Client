@@ -39,6 +39,15 @@ public class LocalAnswerTest {
         assertEquals("請說明要使用台斤或台兩。", answer("一斤換成公克"));
     }
 
+    @Test public void convertsTimeAndSpeedUnits() {
+        assertEquals("90分鐘等於1.5小時。", answer("90分鐘換成小時"));
+        assertEquals("1天等於24小時。", answer("一天換成小時"));
+        assertEquals("1週等於7天。", answer("一週換成天"));
+        assertEquals("72公里每小時等於20公尺每秒。", answer("72公里每小時換成公尺每秒"));
+        assertEquals("5公尺每秒等於18公里每小時。", answer("5公尺每秒換成公里每小時"));
+        assertEquals("這兩個單位無法換算，請確認單位。", answer("3小時換成公尺"));
+    }
+
     @Test public void leavesOtherQuestionsForTheirOwnHandlers() {
         assertNull(answer("台北明天天氣如何"));
         assertNull(answer("一百美元換成台幣"));
