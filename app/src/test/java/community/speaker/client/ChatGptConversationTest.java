@@ -33,6 +33,20 @@ public class ChatGptConversationTest {
         }
     }
 
+    @Test public void clearingContextExcludesEarlierTurnsFromNextRequest() throws IOException {
+        ChatGptConversation conversation = new ChatGptConversation();
+        conversation.ask("舊問題", messages -> "舊回答");
+        conversation.clear();
+
+        conversation.ask("新問題", messages -> {
+            assertEquals(1, messages.size());
+            assertEquals("user", messages.get(0).role);
+            assertEquals("新問題", messages.get(0).content);
+            return "新回答";
+        });
+        assertEquals(1, conversation.turnCount());
+    }
+
     @Test public void conversationHistoryIsBounded() throws IOException {
         ChatGptConversation conversation = new ChatGptConversation();
         for (int index = 0; index < 10; index++) {

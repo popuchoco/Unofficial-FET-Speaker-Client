@@ -459,16 +459,40 @@ public final class MainActivity extends AppCompatActivity {
                 .setTitle("ChatGPT 設定")
                 .setMessage("目前模型：" + (chatGptProvider.selectedModelName().isEmpty()
                         ? "尚未選擇" : chatGptProvider.selectedModelName())
-                        + "\n對話脈絡只暫存在記憶體，關閉 App 後清除。")
-                .setPositiveButton("選擇模型", (dialog, which) -> loadChatGptModels(true))
-                .setNeutralButton("中斷連結", (dialog, which) -> {
+                        + "\n目前保留 " + chatGptConversation.turnCount() + " 輪對話（最多八輪），只存在記憶體；關閉 App 後清除。")
+                .setItems(new String[] { "選擇模型", "清除對話脈絡", "中斷連結" }, (dialog, choice) -> {
+                    if (choice == 0) loadChatGptModels(true);
+                    else if (choice == 1) confirmClearChatGptConversation();
+                    else confirmDisconnectChatGpt();
+                })
+                .setNegativeButton("關閉", null)
+                .show();
+    }
+
+    private void confirmClearChatGptConversation() {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("清除對話脈絡？")
+                .setMessage("只會清除愛狐說記憶體中的短期脈絡，不會送出網路請求，也不會中斷 ChatGPT 連結。")
+                .setPositiveButton("清除", (confirmation, button) -> {
+                    chatGptConversation.clear();
+                    speakAssistantStatus("已清除 ChatGPT 對話脈絡。");
+                })
+                .setNegativeButton("取消", null)
+                .show();
+    }
+
+    private void confirmDisconnectChatGpt() {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("中斷 ChatGPT 連結？")
+                .setMessage("移除此手機上的 ChatGPT 授權資料，並清除暫存的對話脈絡。")
+                .setPositiveButton("中斷連結", (confirmation, button) -> {
                     cancelLookup();
                     chatGptProvider.clearConnection();
                     chatGptConversation.clear();
                     updateChatGptStatus();
                     speakAssistantStatus("已移除這部手機上的 ChatGPT 連結。");
                 })
-                .setNegativeButton("關閉", null)
+                .setNegativeButton("取消", null)
                 .show();
     }
 
