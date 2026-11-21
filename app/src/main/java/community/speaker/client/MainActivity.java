@@ -56,6 +56,7 @@ public final class MainActivity extends AppCompatActivity {
     private Button appearanceButton;
     private TextToSpeech tts;
     private BleInspector ble;
+    private MediaKeyDiagnostic mediaKeys;
     private boolean speechReady;
     private int utteranceNumber;
     private String activeUtterance;
@@ -119,6 +120,15 @@ public final class MainActivity extends AppCompatActivity {
 
         startSection("音樂");
         addLink("開啟 KKBOX", "https://www.kkbox.com/tw/");
+
+        startSection("音箱按鍵診斷");
+        label("先暫停其他 App 的媒體播放，再測試音箱上的播放或暫停按鍵。", 15);
+        TextView keyStatus = label("", 15);
+        keyStatus.setAccessibilityLiveRegion(TextView.ACCESSIBILITY_LIVE_REGION_POLITE);
+        mediaKeys = new MediaKeyDiagnostic(this, keyStatus::setText);
+        addButton(section, "測試媒體按鍵", mediaKeys::start);
+        addButton(section, "結束測試", () -> mediaKeys.stop("已結束按鍵測試。"),
+                androidx.appcompat.R.attr.borderlessButtonStyle);
 
         startSection("BLE 診斷");
         label("掃描附近裝置。選取結果可查看該裝置提供的 GATT 服務。", 15);
@@ -358,6 +368,7 @@ public final class MainActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         if (ble != null) ble.pause();
+        if (mediaKeys != null) mediaKeys.stop("離開畫面，已結束按鍵測試。");
         if (voiceInput != null) voiceInput.cancel();
         super.onStop();
     }
