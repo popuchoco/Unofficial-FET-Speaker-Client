@@ -3,6 +3,7 @@ package community.speaker.client;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
+import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
@@ -110,9 +111,13 @@ final class BleInspector {
                         }
                         StringBuilder summary = new StringBuilder();
                         for (BluetoothGattService service : gatt.getServices()) {
-                            summary.append("\n").append(service.getUuid());
+                            summary.append("\n\n服務 ").append(service.getUuid());
+                            for (BluetoothGattCharacteristic characteristic : service.getCharacteristics()) {
+                                summary.append("\n").append(characteristic.getUuid())
+                                        .append(" · ").append(properties(characteristic.getProperties()));
+                            }
                         }
-                        finishConnection(summary.length() == 0 ? "裝置未列出 GATT 服務。" : "GATT 服務" + summary);
+                        finishConnection(summary.length() == 0 ? "裝置未列出 GATT 服務。" : "GATT 服務與特徵" + summary);
                     });
                 }
             }, BluetoothDevice.TRANSPORT_LE);
@@ -124,6 +129,16 @@ final class BleInspector {
         } catch (SecurityException error) {
             finishConnection("BLE 連線權限已取消。");
         }
+    }
+
+    private static String properties(int flags) {
+        java.util.StringJoiner labels = new java.util.StringJoiner("、");
+        if ((flags & BluetoothGattCharacteristic.PROPERTY_READ) != 0) labels.add("讀取");
+        if ((flags & (BluetoothGattCharacteristic.PROPERTY_WRITE
+                | BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE)) != 0) labels.add("寫入");
+        if ((flags & BluetoothGattCharacteristic.PROPERTY_NOTIFY) != 0) labels.add("通知");
+        if ((flags & BluetoothGattCharacteristic.PROPERTY_INDICATE) != 0) labels.add("指示");
+        return labels.length() == 0 ? "0x" + Integer.toHexString(flags) : labels.toString();
     }
 
     void pause() {
