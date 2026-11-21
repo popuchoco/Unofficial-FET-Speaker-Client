@@ -43,7 +43,7 @@ public class ChatGptConversationTest {
         final int[] messagesSeen = { 0 };
         conversation.ask("最後一題", messages -> {
             messagesSeen[0] = messages.size();
-            assertEquals("問題2", messages.get(0).content);
+            assertEquals("問題3", messages.get(0).content);
             return "最後回答";
         });
         assertEquals(15, messagesSeen[0]);
