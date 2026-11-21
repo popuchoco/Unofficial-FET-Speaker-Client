@@ -70,6 +70,6 @@ final class WikipediaLookup {
     }
 
     private static JSONObject get(String url) throws IOException, JSONException {
-        return new JSONObject(PublicDataClient.get(url, "application/json", 128 * 1024));
+        return new JSONObject(PublicDataClient.get(url, "application/json", 128 * 1024, 60 * 60 * 1000L));
     }
 }

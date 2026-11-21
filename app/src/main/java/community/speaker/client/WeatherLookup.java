@@ -67,7 +67,7 @@ final class WeatherLookup {
         if (dataset == null) throw new IllegalArgumentException("County and district are required");
         String url = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/" + dataset
                 + "?Authorization=" + URLEncoder.encode(key, "UTF-8") + "&format=JSON";
-        return answer(PublicDataClient.get(url, "application/json", 4 * 1024 * 1024),
+        return answer(PublicDataClient.get(url, "application/json", 4 * 1024 * 1024, 15 * 60 * 1000L),
                 place, days, System.currentTimeMillis());
     }
 

@@ -39,7 +39,7 @@ final class AirQualityLookup {
     static LookupAnswer search(String place, String apiKey) throws IOException, JSONException {
         String url = "https://data.moenv.gov.tw/api/v2/aqx_p_432?format=json&limit=1000&api_key="
                 + URLEncoder.encode(apiKey, "UTF-8");
-        return answer(PublicDataClient.get(url, "application/json", 2 * 1024 * 1024),
+        return answer(PublicDataClient.get(url, "application/json", 2 * 1024 * 1024, 5 * 60 * 1000L),
                 place, System.currentTimeMillis());
     }
 

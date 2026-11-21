@@ -72,7 +72,7 @@ final class ExchangeLookup {
 
     static LookupAnswer search(Request request) throws IOException {
         if (!"TWD".equals(request.from) && !"TWD".equals(request.to)) return crossCurrency();
-        String csv = PublicDataClient.get(SOURCE + "Export?type=csv", "text/plain,text/csv", 64 * 1024);
+        String csv = PublicDataClient.get(SOURCE + "Export?type=csv", "text/plain,text/csv", 64 * 1024, 5 * 60 * 1000L);
         return answer(csv, request, System.currentTimeMillis());
     }
 

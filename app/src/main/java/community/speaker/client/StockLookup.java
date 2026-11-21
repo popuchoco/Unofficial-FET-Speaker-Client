@@ -61,7 +61,7 @@ final class StockLookup {
     private static LookupAnswer find(String key, boolean listed, List<String> suggestions) throws IOException, JSONException {
         String endpoint = listed ? LISTED_SOURCE + "v1/exchangeReport/STOCK_DAY_ALL"
                 : OTC_SOURCE + "v1/tpex_mainboard_quotes";
-        JSONArray rows = new JSONArray(PublicDataClient.get(endpoint, "application/json", 2 * 1024 * 1024));
+        JSONArray rows = new JSONArray(PublicDataClient.get(endpoint, "application/json", 2 * 1024 * 1024, 2 * 60 * 1000L));
         if (rows.length() == 0) throw new IOException("Empty market dataset");
         for (int index = 0; index < rows.length(); index++) {
             JSONObject row = rows.getJSONObject(index);
