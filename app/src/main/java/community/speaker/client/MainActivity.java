@@ -37,6 +37,7 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import java.io.IOException;
 import java.util.Comparator;
 import java.util.Locale;
 import java.util.Set;
@@ -48,10 +49,7 @@ public final class MainActivity extends AppCompatActivity {
     private static final int REMINDER_NOTIFICATIONS = 44;
     private static final int MAILBOX_MICROPHONE_PERMISSION = 45;
     private static final String LAST_DEVICE_NAME = "last_device_name";
-    private static final String MOENV_KEY = "moenv_api_key";
-    private static final String CWA_KEY = "cwa_api_key";
     private static final String PAPAGO_CLIENT_ID = "papago_client_id";
-    private static final String PAPAGO_CLIENT_SECRET = "papago_client_secret";
     private static final String WEATHER_PLACE = "weather_place";
     private static final String[] APPEARANCES = { "跟隨系統", "淺色", "深色" };
     private static final int[] NIGHT_MODES = {
@@ -71,6 +69,8 @@ public final class MainActivity extends AppCompatActivity {
     private TextView chatGptStatus;
     private Button chatGptConnectionButton;
     private ChatGptProvider chatGptProvider;
+    private ServiceCredentialStore serviceCredentials;
+    private String serviceCredentialError;
     private final ChatGptConversation chatGptConversation = new ChatGptConversation();
     private final java.util.concurrent.ExecutorService chatGptExecutor =
             java.util.concurrent.Executors.newSingleThreadExecutor();
@@ -112,6 +112,12 @@ public final class MainActivity extends AppCompatActivity {
         appearance = getPreferences(MODE_PRIVATE).getInt("appearance", 0);
         getDelegate().setLocalNightMode(NIGHT_MODES[appearance]);
         super.onCreate(state);
+        serviceCredentials = new ServiceCredentialStore(this);
+        try {
+            serviceCredentials.migrate(getPreferences(MODE_PRIVATE));
+        } catch (IOException error) {
+            serviceCredentialError = "服務憑證安全遷移失敗，請重新設定相關服務憑證。";
+        }
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         content = new LinearLayout(this);
@@ -373,11 +379,11 @@ public final class MainActivity extends AppCompatActivity {
         }
         String airPlace = AirQualityLookup.place(input);
         if (airPlace != null) {
-            String key = getPreferences(MODE_PRIVATE).getString(MOENV_KEY, "");
+            String key = savedCredential(ServiceCredentialStore.MOENV_API_KEY);
             if (airPlace.isEmpty() || airPlace.length() > 40) {
                 speakAssistantStatus("請指定測站，例如查空氣品質松山。");
             } else if (key.isEmpty()) {
-                speakAssistantStatus("請先在服務設定輸入環境部資料授權碼。");
+                speakAssistantStatus(credentialErrorOr("請先在服務設定輸入環境部資料授權碼。"));
             } else {
                 startLookup("正在查詢空氣品質…", "無法取得空氣品質，請確認授權碼或稍後再試。",
                         () -> AirQualityLookup.search(airPlace, key));
@@ -566,11 +572,11 @@ public final class MainActivity extends AppCompatActivity {
     private void lookupWeather(WeatherLookup.Request request) {
         android.content.SharedPreferences settings = getPreferences(MODE_PRIVATE);
         String place = request.place.isEmpty() ? settings.getString(WEATHER_PLACE, "") : request.place;
-        String key = settings.getString(CWA_KEY, "");
+        String key = savedCredential(ServiceCredentialStore.CWA_API_KEY);
         if (place.length() > 40 || WeatherLookup.dataset(place) == null) {
             speakAssistantStatus("請說出完整縣市和鄉鎮市區，例如查臺北市信義區明天天氣。");
         } else if (key.isEmpty()) {
-            speakAssistantStatus("請先在服務設定輸入中央氣象署授權碼。");
+            speakAssistantStatus(credentialErrorOr("請先在服務設定輸入中央氣象署授權碼。"));
         } else {
             startLookup("正在查詢氣象署預報…", "無法取得天氣預報，請確認授權碼或稍後再試。",
                     () -> WeatherLookup.search(place, request.days, key));
@@ -588,7 +594,7 @@ public final class MainActivity extends AppCompatActivity {
         key.setSaveEnabled(false);
         key.setInputType(android.text.InputType.TYPE_CLASS_TEXT
                 | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        key.setText(settings.getString(CWA_KEY, ""));
+        key.setText(savedCredential(ServiceCredentialStore.CWA_API_KEY));
         panel.addView(key);
         EditText place = new TextInputEditText(this);
         place.setSingleLine(true);
@@ -596,14 +602,16 @@ public final class MainActivity extends AppCompatActivity {
         place.setText(settings.getString(WEATHER_PLACE, ""));
         panel.addView(place);
         new MaterialAlertDialogBuilder(this).setTitle("天氣資料來源")
-                .setMessage("授權碼保存在此手機，只有主動查詢才會送往氣象署。")
+                .setMessage("授權碼以 Android Keystore 加密保存在此手機，只有主動查詢才會送往氣象署。")
                 .setView(panel)
                 .setNeutralButton("開啟氣象署", (dialog, button) ->
                         open(new Intent(Intent.ACTION_VIEW, Uri.parse(WeatherLookup.SOURCE))))
                 .setNegativeButton("取消", null)
-                .setPositiveButton("儲存", (dialog, button) -> settings.edit()
-                        .putString(CWA_KEY, key.getText().toString().trim())
-                        .putString(WEATHER_PLACE, place.getText().toString().trim()).apply())
+                .setPositiveButton("儲存", (dialog, button) -> {
+                    saveCredential(ServiceCredentialStore.CWA_API_KEY, key.getText().toString());
+                    settings.edit().putString(WEATHER_PLACE, place.getText().toString().trim()).apply();
+                    announceCredentialSaveError();
+                })
                 .show();
     }
 
@@ -614,17 +622,17 @@ public final class MainActivity extends AppCompatActivity {
         input.setSaveEnabled(false);
         input.setInputType(android.text.InputType.TYPE_CLASS_TEXT
                 | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        input.setText(getPreferences(MODE_PRIVATE).getString(MOENV_KEY, ""));
+        input.setText(savedCredential(ServiceCredentialStore.MOENV_API_KEY));
         new MaterialAlertDialogBuilder(this)
                 .setTitle("空氣品質資料來源")
-                .setMessage("使用環境部開放資料平台核發的授權碼。授權碼保存在此手機，只有主動查詢才會送往環境部。")
+                .setMessage("使用環境部開放資料平台核發的授權碼。授權碼以 Android Keystore 加密保存在此手機，只有主動查詢才會送往環境部。")
                 .setView(input)
                 .setNeutralButton("開啟環境部", (dialog, button) ->
                         open(new Intent(Intent.ACTION_VIEW, Uri.parse(AirQualityLookup.SOURCE))))
                 .setNegativeButton("取消", null)
                 .setPositiveButton("儲存", (dialog, button) -> {
-                    String key = input.getText().toString().trim();
-                    getPreferences(MODE_PRIVATE).edit().putString(MOENV_KEY, key).apply();
+                    saveCredential(ServiceCredentialStore.MOENV_API_KEY, input.getText().toString());
+                    announceCredentialSaveError();
                 })
                 .show();
     }
@@ -646,32 +654,60 @@ public final class MainActivity extends AppCompatActivity {
         clientSecret.setSaveEnabled(false);
         clientSecret.setInputType(android.text.InputType.TYPE_CLASS_TEXT
                 | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        clientSecret.setText(settings.getString(PAPAGO_CLIENT_SECRET, ""));
+        clientSecret.setText(savedCredential(ServiceCredentialStore.PAPAGO_CLIENT_SECRET));
         panel.addView(clientSecret);
         new MaterialAlertDialogBuilder(this).setTitle("Papago 翻譯 API")
-                .setMessage("請在 Naver Cloud 建立 Papago Translation API 應用並輸入自己的 Client ID 與 Secret。憑證只保存在此 App 的手機私有設定，僅在你明確要求翻譯時送往 Papago。服務依字數收費，請先在 Naver Cloud 設定用量上限。留空儲存可移除憑證。")
+                .setMessage("請在 Naver Cloud 建立 Papago Translation API 應用並輸入自己的 Client ID 與 Secret。Client ID 保存在 App 私有設定，Secret 以 Android Keystore 加密保存在此手機；僅在你明確要求翻譯時送往 Papago。服務依字數收費，請先在 Naver Cloud 設定用量上限。留空儲存可移除憑證。")
                 .setView(panel)
                 .setNeutralButton("官方 API 指引", (dialog, button) ->
                         open(new Intent(Intent.ACTION_VIEW, Uri.parse("https://guide.ncloud-docs.com/docs/en/papagotranslation-procedure"))))
                 .setNegativeButton("取消", null)
-                .setPositiveButton("儲存", (dialog, button) -> settings.edit()
-                        .putString(PAPAGO_CLIENT_ID, clientId.getText().toString().trim())
-                        .putString(PAPAGO_CLIENT_SECRET, clientSecret.getText().toString().trim()).apply())
+                .setPositiveButton("儲存", (dialog, button) -> {
+                    settings.edit().putString(PAPAGO_CLIENT_ID, clientId.getText().toString().trim()).apply();
+                    saveCredential(ServiceCredentialStore.PAPAGO_CLIENT_SECRET, clientSecret.getText().toString());
+                    announceCredentialSaveError();
+                })
                 .show();
     }
 
     private void translate(TranslationRequest request) {
         android.content.SharedPreferences settings = getPreferences(MODE_PRIVATE);
         String clientId = settings.getString(PAPAGO_CLIENT_ID, "");
-        String clientSecret = settings.getString(PAPAGO_CLIENT_SECRET, "");
+        String clientSecret = savedCredential(ServiceCredentialStore.PAPAGO_CLIENT_SECRET);
         if (clientId.isEmpty() || clientSecret.isEmpty()) {
-            speakAssistantStatus("請先在服務設定輸入自己的 Papago API 憑證，再試一次翻譯。");
+            speakAssistantStatus(credentialErrorOr("請先在服務設定輸入自己的 Papago API 憑證，再試一次翻譯。"));
             return;
         }
         startLookup("正在使用 Papago 翻譯…",
                 "Papago 翻譯失敗，請確認網路、API 憑證或 Naver Cloud 用量上限。",
                 PapagoLookup.SOURCE,
                 () -> PapagoLookup.search(request, clientId, clientSecret));
+    }
+
+    private String savedCredential(String name) {
+        try {
+            return serviceCredentials.get(name);
+        } catch (IOException error) {
+            serviceCredentialError = "無法讀取已保存的服務憑證，請重新設定。";
+            return "";
+        }
+    }
+
+    private void saveCredential(String name, String value) {
+        try {
+            serviceCredentials.save(name, value);
+            serviceCredentialError = null;
+        } catch (IOException error) {
+            serviceCredentialError = "無法安全保存服務憑證，請檢查手機儲存狀態後重試。";
+        }
+    }
+
+    private String credentialErrorOr(String missingCredentialMessage) {
+        return serviceCredentialError == null ? missingCredentialMessage : serviceCredentialError;
+    }
+
+    private void announceCredentialSaveError() {
+        if (serviceCredentialError != null) speakAssistantStatus(serviceCredentialError);
     }
 
     private void lookupWikipedia(String topic) {
