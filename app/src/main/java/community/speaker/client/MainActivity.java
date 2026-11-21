@@ -44,6 +44,7 @@ public final class MainActivity extends AppCompatActivity {
     private static final int BLE_PERMISSIONS = 42;
     private static final int MICROPHONE_PERMISSION = 43;
     private static final int REMINDER_NOTIFICATIONS = 44;
+    private static final int MAILBOX_MICROPHONE_PERMISSION = 45;
     private static final String LAST_DEVICE_NAME = "last_device_name";
     private static final String[] APPEARANCES = { "跟隨系統", "淺色", "深色" };
     private static final int[] NIGHT_MODES = {
@@ -60,6 +61,10 @@ public final class MainActivity extends AppCompatActivity {
     private VoiceInput voiceInput;
     private TextView voiceStatus;
     private ReminderRequest pendingReminder;
+    private VoiceMessages voiceMessages;
+    private androidx.appcompat.app.AlertDialog mailboxDialog;
+    private TextView mailboxStatus;
+    private LinearLayout mailboxList;
     private TextView speechStatus;
     private TextView bluetoothStatus;
     private TextView lastDevice;
@@ -114,6 +119,8 @@ public final class MainActivity extends AppCompatActivity {
         label("音箱喚醒與自動回應尚未開放。", 15);
 
         addButton(section, "查看本機提醒", this::showReminders);
+        voiceMessages = new VoiceMessages(this);
+        addButton(section, "家庭留言", this::showMailbox);
 
         startSection("服務設定");
         label("在官方頁面自行登入。", 15);
@@ -312,6 +319,104 @@ public final class MainActivity extends AppCompatActivity {
         dialog.show();
     }
 
+    private void showMailbox() {
+        stopDiagnostics();
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(dp(20), dp(8), dp(20), dp(12));
+        scroll.addView(panel);
+        mailboxStatus = new MaterialTextView(this);
+        mailboxStatus.setAccessibilityLiveRegion(TextView.ACCESSIBILITY_LIVE_REGION_POLITE);
+        panel.addView(mailboxStatus);
+        addButton(panel, "錄製留言", this::requestMailboxRecording);
+        addButton(panel, "儲存錄音", this::saveMailboxRecording);
+        addButton(panel, "取消錄音", () -> {
+            voiceMessages.cancel();
+            mailboxStatus.setText("已取消錄音。");
+        }, androidx.appcompat.R.attr.borderlessButtonStyle);
+        addButton(panel, "停止播放", () -> {
+            voiceMessages.stopPlayback();
+            mailboxStatus.setText("已停止播放。");
+        }, androidx.appcompat.R.attr.borderlessButtonStyle);
+        mailboxList = new LinearLayout(this);
+        mailboxList.setOrientation(LinearLayout.VERTICAL);
+        panel.addView(mailboxList);
+        mailboxDialog = new MaterialAlertDialogBuilder(this).setTitle("家庭留言")
+                .setView(scroll).setNegativeButton("關閉", null).create();
+        mailboxDialog.setOnDismissListener(dialog -> {
+            voiceMessages.cancel();
+            voiceMessages.stopPlayback();
+            mailboxDialog = null;
+        });
+        refreshMailbox();
+        mailboxDialog.show();
+    }
+
+    private void requestMailboxRecording() {
+        if (voiceMessages.isRecording()) return;
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[] { Manifest.permission.RECORD_AUDIO }, MAILBOX_MICROPHONE_PERMISSION);
+            return;
+        }
+        voiceMessages.record(mailboxStatus::setText);
+        if (voiceMessages.isRecording()) mailboxStatus.setText("錄音中。說完後按「儲存錄音」。");
+    }
+
+    private void saveMailboxRecording() {
+        if (!voiceMessages.isRecording()) {
+            mailboxStatus.setText("請先錄製留言。");
+            return;
+        }
+        try {
+            voiceMessages.save();
+            refreshMailbox();
+            mailboxStatus.setText("已儲存留言。");
+        } catch (java.io.IOException error) {
+            mailboxStatus.setText("無法儲存留言。請重新錄音。");
+        }
+    }
+
+    private void refreshMailbox() {
+        mailboxList.removeAllViews();
+        try {
+            java.text.DateFormat times = java.text.DateFormat.getDateTimeInstance();
+            java.util.List<java.io.File> recordings = voiceMessages.list();
+            if (recordings.isEmpty()) mailboxStatus.setText("目前沒有留言。");
+            for (java.io.File recording : recordings) {
+                String title = times.format(new java.util.Date(recording.lastModified()));
+                addButton(mailboxList, title, () -> showMessageActions(recording, title));
+            }
+        } catch (java.io.IOException error) {
+            mailboxStatus.setText("無法載入家庭留言。");
+        }
+    }
+
+    private void showMessageActions(java.io.File recording, String title) {
+        if (voiceMessages.isRecording()) {
+            mailboxStatus.setText("請先儲存或取消此次錄音。");
+            return;
+        }
+        new MaterialAlertDialogBuilder(this).setTitle(title).setItems(
+                new String[] { "播放留言", "刪除留言" }, (dialog, selected) -> {
+                    if (selected == 0) {
+                        mailboxStatus.setText("正在播放留言。");
+                        voiceMessages.play(recording, mailboxStatus::setText);
+                    } else {
+                        new MaterialAlertDialogBuilder(this).setTitle("刪除這段留言？")
+                                .setNegativeButton("保留", null)
+                                .setPositiveButton("刪除", (confirmation, button) -> {
+                                    if (voiceMessages.delete(recording)) {
+                                        refreshMailbox();
+                                        mailboxStatus.setText("已刪除留言。");
+                                    } else {
+                                        mailboxStatus.setText("無法刪除留言。");
+                                    }
+                                }).show();
+                    }
+                }).setNegativeButton("關閉", null).show();
+    }
+
     private void handleClockRequest(ClockRequest request) {
         if (request.kind == ClockRequest.Kind.CLARIFICATION) {
             voiceStatus.setText(request.prompt);
@@ -426,6 +531,16 @@ public final class MainActivity extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int request, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(request, permissions, results);
+        if (request == MAILBOX_MICROPHONE_PERMISSION) {
+            if (mailboxDialog != null && mailboxDialog.isShowing()) {
+                if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) {
+                    requestMailboxRecording();
+                } else {
+                    mailboxStatus.setText("未允許使用麥克風。");
+                }
+            }
+            return;
+        }
         if (request == REMINDER_NOTIFICATIONS) {
             ReminderRequest reminder = pendingReminder;
             pendingReminder = null;
@@ -593,6 +708,11 @@ public final class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onStop() {
+        if (voiceMessages.isRecording()) {
+            voiceMessages.cancel();
+            if (mailboxDialog != null) mailboxStatus.setText("離開畫面，已取消錄音。");
+        }
+        voiceMessages.stopPlayback();
         stopDiagnostics();
         if (audioManager != null) audioManager.unregisterAudioDeviceCallback(audioDevices);
         super.onStop();
@@ -600,6 +720,7 @@ public final class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        if (mailboxDialog != null) mailboxDialog.dismiss();
         activeUtterance = null;
         if (tts != null) tts.shutdown();
         super.onDestroy();
