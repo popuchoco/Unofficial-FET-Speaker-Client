@@ -41,4 +41,16 @@ public class CalendarMonthQueryTest {
         assertEquals("請提供有效的年份與月份。", CalendarMonthQuery.answer("2026年13月幾天", now));
         assertNull(CalendarMonthQuery.answer("今天星期幾", now));
     }
+
+    @Test public void findsNthAndLastWeekdayOfGregorianMonths() {
+        Calendar now = date(2026, 11, 21);
+        assertEquals("2026年11月第3個星期五是20日。",
+                CalendarMonthQuery.answer("2026年11月第三個星期五是幾號", now));
+        assertEquals("2026年12月最後一個星期一是28日。",
+                CalendarMonthQuery.answer("下個月最後一個星期一是哪天", now));
+        assertEquals("2024年2月最後一個星期日是25日。",
+                CalendarMonthQuery.answer("2024年2月最後一個星期天", now));
+        assertEquals("2026年2月沒有第5個星期一。",
+                CalendarMonthQuery.answer("今年二月第五個星期一", now));
+    }
 }
