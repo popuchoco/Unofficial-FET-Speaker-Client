@@ -1,6 +1,7 @@
 package community.speaker.client;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import com.google.android.material.button.MaterialButton;
@@ -40,6 +41,7 @@ import java.util.Comparator;
 import java.util.Locale;
 import java.util.Set;
 
+@SuppressLint("SetTextI18n") // The app currently provides a single Traditional Chinese interface.
 public final class MainActivity extends AppCompatActivity {
     private static final int BLE_PERMISSIONS = 42;
     private static final int MICROPHONE_PERMISSION = 43;
@@ -119,6 +121,17 @@ public final class MainActivity extends AppCompatActivity {
         scroll.addView(content);
         content.setFocusableInTouchMode(true);
         setContentView(scroll);
+        if (Build.VERSION.SDK_INT >= 35) {
+            androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(scroll, (view, windowInsets) -> {
+                androidx.core.graphics.Insets bars = windowInsets.getInsets(
+                        androidx.core.view.WindowInsetsCompat.Type.systemBars()
+                                | androidx.core.view.WindowInsetsCompat.Type.displayCutout()
+                                | androidx.core.view.WindowInsetsCompat.Type.ime());
+                view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+                return windowInsets;
+            });
+            androidx.core.view.ViewCompat.requestApplyInsets(scroll);
+        }
         content.requestFocus();
         chatGptProvider = new ChatGptProvider(this);
         if (Build.VERSION.SDK_INT >= 27) {
@@ -950,6 +963,7 @@ public final class MainActivity extends AppCompatActivity {
         voiceStatus.setText("已複製，可貼到官方對話頁面。");
     }
 
+    @SuppressLint("InlinedApi")
     private String[] scanPermissions() {
         return new String[] { Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT };
     }

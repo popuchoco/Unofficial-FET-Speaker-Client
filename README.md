@@ -41,6 +41,7 @@ Android 版最低支援 Android 7.0。瀏覽器雛型仍可直接以瀏覽器開
 - 預設不連線任何雲端服務。只有明確要求線上查詢、Papago 翻譯、開啟官方服務，或連結 ChatGPT 後送出問題時，才會使用網路。ChatGPT 問題由裝置直接傳給 OpenAI；短期對話脈絡只在記憶體，憑證以 Android Keystore 加密保存。Papago 原文只在明確翻譯時送往 Naver Cloud；其官方說明稱不保存原文，也不拿來訓練。查維基百科只會將查詢詞送往維基百科；台股查詢下載公開盤後資料，股票名稱或代號在手機比對。
 - 不需要位置權限，也不讀取或保存 GPS 座標。
 - 已保存的上次裝置資訊位於 App 私有設定中，目前只儲存裝置名稱。
+- Android 雲端備份與裝置移轉都排除 App 私有資料；ChatGPT 授權資訊另以 Android Keystore 加密。
 - Papago Client ID 與 Secret 由使用者輸入，保存在 App 私有設定，僅於翻譯請求時直接送往 Papago；Repository 不包含這些憑證。
 - 匯出內容不包含裝置位址。目前版本未提供匯出功能。
 - Repository 不應包含私人裝置資料、憑證或使用者匯出內容。
