@@ -26,7 +26,18 @@ public class LocalAnswerTest {
         assertEquals("2024年2月有29天。", answer("查萬年曆2024年2月有幾天"));
         assertEquals("2026年11月第3個星期五是20日。",
                 answer("查萬年曆2026年11月第三個星期五"));
+        assertEquals("本週五是2026年11月20日星期五。", answer("本週五幾號"));
+        assertEquals("下週一是2026年11月23日星期一。", answer("下週一是幾號"));
+        assertEquals("上週日是2026年11月15日星期日。", answer("上週星期日日期"));
         assertEquals("這個日期不存在，請再確認年月日。", answer("2025年2月29日星期幾"));
+    }
+
+    @Test public void weekDateQueriesCrossMonthAndYearBoundaries() {
+        time.set(2026, Calendar.OCTOBER, 31, 19, 5);
+        assertEquals("下週一是2026年11月2日星期一。", answer("下週一幾號"));
+
+        time.set(2026, Calendar.DECEMBER, 31, 19, 5);
+        assertEquals("下週一是2027年1月4日星期一。", answer("下週一幾號"));
     }
 
     @Test public void calculatesDecimalAndChineseExpressions() {

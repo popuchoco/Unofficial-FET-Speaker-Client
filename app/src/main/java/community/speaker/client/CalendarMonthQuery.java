@@ -10,6 +10,9 @@ final class CalendarMonthQuery {
             "(這個月|本月|下個月|下月|上個月|上月)(?:有)?(?:幾天|多少天|天數)");
     private static final Pattern MONTH_LENGTH = Pattern.compile(
             "(?:(\\d{4})年|(今年|明年|去年))?([0-9]{1,2})月(?:份)?(?:(?:有)?(?:幾天|多少天|天數))");
+    private static final Pattern WEEKDAY_DATE = Pattern.compile(
+            "((?:這(?:個)?|本|下|上)(?:週|周|星期|禮拜))(?:(?:星期|禮拜))?([1-7])"
+                    + "(?:是?(?:幾號|幾日|日期|哪天|哪一日))?");
     private static final Pattern WEEKDAY_OCCURRENCE = Pattern.compile(
             "(?:(?:(\\d{4})年|(今年|明年|去年))?([0-9]{1,2})月|(這個月|本月|下個月|下月|上個月|上月))"
                     + "(?:第([1-5])個|(最後)1個)(?:星期|禮拜)([1-7])(?:(?:是)?(?:幾號|哪天|哪一日))?");
@@ -27,6 +30,20 @@ final class CalendarMonthQuery {
         query = query.replace("星期天", "星期7").replace("星期日", "星期7")
                 .replace("禮拜天", "禮拜7").replace("禮拜日", "禮拜7");
         query = LocalAnswer.replaceChineseNumbers(query);
+
+        Matcher weekdayDate = WEEKDAY_DATE.matcher(query);
+        if (weekdayDate.matches()) {
+            String period = weekdayDate.group(1);
+            int weekday = Integer.parseInt(weekdayDate.group(2));
+            Calendar date = (Calendar) now.clone();
+            date.add(Calendar.DATE, -((date.get(Calendar.DAY_OF_WEEK) + 5) % 7));
+            if (period.startsWith("下")) date.add(Calendar.WEEK_OF_YEAR, 1);
+            else if (period.startsWith("上")) date.add(Calendar.WEEK_OF_YEAR, -1);
+            date.add(Calendar.DATE, weekday - 1);
+            return period + WEEKDAY_NAMES[weekday] + "是" + date.get(Calendar.YEAR) + "年"
+                    + (date.get(Calendar.MONTH) + 1) + "月" + date.get(Calendar.DAY_OF_MONTH)
+                    + "日星期" + WEEKDAY_NAMES[weekday] + "。";
+        }
 
         Matcher relative = RELATIVE_MONTH.matcher(query);
         if (relative.matches()) {
