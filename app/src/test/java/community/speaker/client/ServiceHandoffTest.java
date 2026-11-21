@@ -8,6 +8,8 @@ public class ServiceHandoffTest {
     @Test public void recognizesExplicitRequestsForOfficialServices() {
         assertEquals(ServiceHandoff.TAXI, ServiceHandoff.parse("請幫我叫一台計程車。"));
         assertEquals(ServiceHandoff.TAXI, ServiceHandoff.parse("開啟 Line Go"));
+        assertEquals(ServiceHandoff.TAXI, ServiceHandoff.parse("開啟 TaxiGo"));
+        assertEquals(ServiceHandoff.TAXI, ServiceHandoff.parse("叫 TaxiGo"));
         assertEquals(ServiceHandoff.PUBLIC_LIVE, ServiceHandoff.parse("播放公視新聞直播"));
         assertEquals(ServiceHandoff.PUBLIC_NEWS, ServiceHandoff.parse("播放公視新聞"));
         assertEquals(ServiceHandoff.KKBOX, ServiceHandoff.parse("開啟 KKBOX 音樂"));

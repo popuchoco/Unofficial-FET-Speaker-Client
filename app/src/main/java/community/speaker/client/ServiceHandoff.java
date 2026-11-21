@@ -23,7 +23,8 @@ enum ServiceHandoff {
                 .replaceFirst("^(請幫我|幫我|請)", "");
         if (command.matches("(開啟|打開)(?i:KKBOX)(?:音樂)?")) return KKBOX;
         if (command.matches("(開啟|打開)(?i:Spotify)(?:音樂)?")) return SPOTIFY;
-        if (command.matches("(開啟|打開)?(?i:LINEGO)|叫(一輛|一台)?計程車|叫車|搭計程車")) return TAXI;
+        if (command.matches("(?:(開啟|打開)?(?i:LINEGO|TAXIGO)|叫(?i:TAXIGO))"
+                + "|叫(一輛|一台)?計程車|叫車|搭計程車")) return TAXI;
         if (command.matches("(開啟|打開|播放|收看|看)?(公視新聞(網)?直播|公視直播新聞|直播新聞)")) {
             return PUBLIC_LIVE;
         }

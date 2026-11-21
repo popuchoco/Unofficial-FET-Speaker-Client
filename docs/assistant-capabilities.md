@@ -34,7 +34,7 @@ Gemini API 使用 Google AI Studio／Cloud 專案 API 金鑰；Google 官方明�
 | 鬧鐘、倒數 | Android `AlarmClock.ACTION_SET_ALARM` 和 `ACTION_SET_TIMER` 交給手機時鐘；倒數支援複合時長、半小時與半分鐘，以及一刻鐘與三刻鐘 | 要求時間或秒數、釐清早晚。測試各廠牌時鐘是否受理；單純開啟時鐘介面時播報「已開啟設定」 |
 | 提醒 | 手機本機保存待辦，支援相對時間、今天至後天，以及下一個或下週指定星期的單次時段提醒；通知由 Android 排程。精準提醒依裝置權限與排程能力，重啟後需恢復 | 明確覆誦事項、日期、時間；驗收新增、取消、重啟、權限拒絕及通知到期。音箱斷線時透過手機通知 |
 | 家庭留言機 | 先做同手機保存與播放語音便條，錄音檔私有、可刪除；播放取得 Android 暫時音訊焦點，短暫中斷時暫停並在焦點恢復後續播；永久失去焦點時停止。跨手機與跨音箱分享另評估使用者可控制的同步方式 | 錄音需明確啟動，結束後回覆已儲存。驗收列出、播放、刪除、多筆重名，以及音訊焦點的暫停、恢復與停止 |
-| TaxiGo 叫車 | 已加入 LINE GO 官方叫車頁交接。比對可用的官方合作介面，確認可送單及查狀態後才納入語音直接叫車 | 首版開啟 LINE GO 並由使用者確認上車地點和下單。取得訂單結果後才說叫車成功 |
+| TaxiGo 叫車 | 接受「TaxiGo」、「LINE GO」與一般叫車語句，開啟現行 LINE GO 官方叫車頁。TaxiGo 原叫車平台於 2019 年更名 LINE TAXI，2023 年納入 LINE GO；本 App 不直接送單 | 使用者在官方服務確認上車地點和行程後自行下單；沒有官方合作授權前，不宣稱叫車成功 |
 
 ## 音樂服務
 
@@ -63,6 +63,7 @@ Gemini API 使用 Google AI Studio／Cloud 專案 API 金鑰；Google 官方明�
 - [Google ML Kit 翻譯支援語言](https://developers.google.com/ml-kit/language/translation/translation-language-support?hl=zh-tw) · [Android TranslateLanguage API](https://developers.google.com/android/reference/com/google/mlkit/nl/translate/TranslateLanguage)（目前中文目標為 `zh`，未提供獨立的繁體中文 `zh-TW` 目標；因此無法指定繁體輸出，本專案改採 Papago）
 - [Android AlarmClock](https://developer.android.com/reference/android/provider/AlarmClock)
 - [LINE GO 官方服務](https://www.linego.me/about_us)
+- [LINE TAXI 平台上線與 TaxiGo 更名公告](https://www.linecorp.com/tw/pr/news/tw/2019/2953) · [LINE GO 品牌上線公告](https://www.linecorp.com/tw/pr/news/tw/2023/4668)
 - [ML Kit 裝置端翻譯使用規範](https://developers.google.com/ml-kit/language/translation/translation-terms)
 - [Spotify 開發者政策](https://developer.spotify.com/policy)
 - [Sign in with ChatGPT 開源用戶端快速開始](https://developers.openai.com/siwc/quickstart)
