@@ -22,7 +22,7 @@ Gemini API 使用 Google AI Studio／Cloud 專案 API 金鑰；Google 官方明�
 | 維基百科 | 已接繁中維基百科 REST 搜尋與條目摘要，依規範送出 User-Agent；僅在明確百科指令時查詢 | 找到多個同名詞條時先補問；音箱播最合適詞條的短摘要，App 顯示來源連結 |
 | 直播新聞 | 已支援公視新聞影音與官方直播頁面交接，其他台別或授權音訊串流另評估 | 「播放公視新聞」啟動官方播放器；若公開介面只有網頁入口，標示為開啟官方頁面，播放中斷則說明 |
 | 匯率換算 | 使用臺灣土地銀行官方 CSV。臺灣銀行官方頁面可查詢牌告，但其下載端點在直接連線測試中回傳瀏覽器驗證頁，故目前採用土地銀行公開報價 | 提供新臺幣與外幣的參考換算，預設即期，說「現金」可改用現金牌告。語音及結果頁說明資料來源、買賣方向、參考性與查詢時間；CSV 未提供牌告時間 |
-| 翻譯 | 採 Naver Cloud Papago Translation 文字 API，使用者自行申請並輸入 Client ID／Secret，App 直接連線，不設專案伺服器；Secret 以 Android Keystore 加密保存。依字數收費，原文只在明確翻譯時送出。**不採用 Google ML Kit 翻譯：Google 官方支援語言清單（2026-10-27 更新）只列中文目標碼 `zh`，並標示為簡體中文；沒有繁體中文目標碼 `zh-TW`，不符合愛狐說提供繁體中文翻譯的需求。** | 「把你好翻成日文」使用自動原文偵測，結果頁標示 Papago 並連回官方頁；音箱播放手機已安裝的目標語言離線語音，未安裝時保留譯文。Naver Cloud 表示 API 不保存原文或用於訓練 |
+| 翻譯 | 採 Naver Cloud Papago Translation 文字 API，使用者自行申請並輸入 Client ID／Secret，App 直接連線，不設專案伺服器；Secret 以 Android Keystore 加密保存。依字數收費，原文只在明確翻譯時送出。**不採用 Google ML Kit 翻譯：目前中文目標是簡體中文，官方 API 僅提供 `zh`，沒有可選的繁體中文 `zh-TW` 目標，不能確保輸出符合臺灣繁體中文需求。** | 「把你好翻成日文」使用自動原文偵測，結果頁標示 Papago 並連回官方頁；音箱播放手機已安裝的目標語言離線語音，未安裝時保留譯文。Naver Cloud 表示 API 不保存原文或用於訓練 |
 
 ## 生活幫手
 
@@ -60,7 +60,7 @@ Gemini API 使用 Google AI Studio／Cloud 專案 API 金鑰；Google 官方明�
 - [Papago Translation 文字 API](https://api.ncloud-docs.com/docs/en/ai-naver-papagonmt-translation)
 - [Papago API 費率與使用限制](https://guide.ncloud-docs.com/docs/en/papagotranslation-spec)
 - [Papago 翻譯結果品牌標示](https://guide.ncloud-docs.com/docs/en/naveropenapiv3-translation-copyright)
-- [Google ML Kit 翻譯支援語言](https://developers.google.com/ml-kit/language/translation/translation-language-support?hl=zh-tw)（目前列出中文 `zh`，未列繁體中文目標，因此不採用）
+- [Google ML Kit 翻譯支援語言](https://developers.google.com/ml-kit/language/translation/translation-language-support?hl=zh-tw) · [Android TranslateLanguage API](https://developers.google.com/android/reference/com/google/mlkit/nl/translate/TranslateLanguage)（目前中文目標為 `zh`，未提供獨立的繁體中文 `zh-TW` 目標；因此無法指定繁體輸出，本專案改採 Papago）
 - [Android AlarmClock](https://developer.android.com/reference/android/provider/AlarmClock)
 - [LINE GO 官方服務](https://www.linego.me/about_us)
 - [ML Kit 裝置端翻譯使用規範](https://developers.google.com/ml-kit/language/translation/translation-terms)
