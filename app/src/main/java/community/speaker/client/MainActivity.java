@@ -892,6 +892,20 @@ public final class MainActivity extends AppCompatActivity {
 
     private void confirmReminderCancellation(ReminderActionRequest request) {
         java.util.List<ReminderReceiver.Entry> entries = ReminderReceiver.list(this);
+        if (request.task != null) {
+            java.util.List<ReminderReceiver.Entry> matching = new java.util.ArrayList<>();
+            for (ReminderReceiver.Entry entry : entries) {
+                if (request.matchesMessage(entry.message)) matching.add(entry);
+            }
+            if (matching.size() == 1) {
+                confirmCancelReminder(matching.get(0), false);
+            } else {
+                showReminders();
+                speakAssistantStatus(matching.isEmpty() ? "找不到事項「" + request.task + "」的提醒。"
+                        : "有多筆提醒符合「" + request.task + "」，請在清單選擇要取消的項目。");
+            }
+            return;
+        }
         int index = request.number - 1;
         if (index < 0 || index >= entries.size()) {
             String message = entries.isEmpty() ? "目前沒有待處理的提醒。"
