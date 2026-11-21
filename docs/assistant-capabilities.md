@@ -30,12 +30,17 @@
 | 家庭留言機 | 先做同手機保存與播放語音便條，錄音檔私有、可刪除；跨手機與跨音箱分享另評估使用者可控制的同步方式 | 錄音需明確啟動，結束後回覆已儲存。驗收列出、播放、刪除和多筆重名留言 |
 | TaxiGo 叫車 | 以目前的 LINE GO 官方入口交接。比對可用的官方合作介面，確認可送單及查狀態後才納入語音直接叫車 | 首版開啟 LINE GO 並由使用者確認上車地點和下單。取得訂單結果後才說叫車成功 |
 
+## 音樂服務
+
+- KKBOX 維持官方播放入口。公開 Open API 可評估搜尋曲庫，整首播放或語音點歌的權限須向 KKBOX 確認。
+- Spotify 提供官方入口，使用者在 Spotify 播放，並讓 Android 把聲音送到已配對音箱。Spotify 開發者政策禁止第三方語音助理控制 Spotify，因此本專案不以 Web API 或 App Remote 實作 Spotify 語音點歌、播放控制或串流。
+
 ## 提交與驗收順序
 
 1. 本機問答核心。做時間日期、計算、單位換算，建立繁中口語與歧義測資。完全離線也能得到結果。
 2. 手機動作。做鬧鐘、倒數、提醒、本機留言。測試授權、通知與狀態回報。
 3. 台灣資料。串天氣、AQI、台股盤後、匯率與維基百科。每種資料接法驗證欄位改動、無資料、過期、網路失敗與來源時間。
-4. 媒體和外部服務。驗證新聞、LINE GO、翻譯與現有 KKBOX 官方入口能完成到哪一步。
+4. 媒體和外部服務。驗證新聞、LINE GO、翻譯與 KKBOX、Spotify 官方入口能完成到哪一步。
 5. 音箱端驗收。把確認可用的喚醒、錄音與播放接入上述功能，以兩款音箱逐項測試。成功條件是正常問答無須打開 App 或複製貼上；需外部確認的動作要清楚交接。
 
 ## 來源
@@ -49,3 +54,4 @@
 - [Android AlarmClock](https://developer.android.com/reference/android/provider/AlarmClock)
 - [LINE GO 官方服務](https://www.linego.me/about_us)
 - [ML Kit 裝置端翻譯使用規範](https://developers.google.com/ml-kit/language/translation/translation-terms)
+- [Spotify 開發者政策](https://developer.spotify.com/policy)

@@ -114,6 +114,7 @@ public final class MainActivity extends AppCompatActivity {
         addLink("開啟 Gemini", "https://gemini.google.com/app");
         addLink("開啟 Claude", "https://claude.ai/");
         addLink("開啟 KKBOX", "https://www.kkbox.com/tw/");
+        addLink("開啟 Spotify", "https://open.spotify.com/");
 
         appearanceButton = addButton(content, "外觀 · " + APPEARANCES[appearance], this::chooseAppearance);
         LinearLayout diagnostics = new LinearLayout(this);
