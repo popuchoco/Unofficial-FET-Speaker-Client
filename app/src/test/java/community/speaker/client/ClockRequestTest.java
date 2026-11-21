@@ -10,6 +10,9 @@ public class ClockRequestTest {
         assertAlarm("晚上十一點鐘鬧鐘", 23, 0);
         assertAlarm("中午十二點鬧鐘", 12, 0);
         assertAlarm("凌晨十二點叫醒我", 0, 0);
+        assertAlarm("午夜十二點半鬧鐘", 0, 30);
+        assertAlarm("午夜零點鬧鐘", 0, 0);
+        assertAlarm("凌晨零點半鬧鐘", 0, 30);
         assertAlarm("設定鬧鐘18:05", 18, 5);
     }
 

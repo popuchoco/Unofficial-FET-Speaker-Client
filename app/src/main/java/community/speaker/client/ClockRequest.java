@@ -8,7 +8,7 @@ final class ClockRequest {
     enum Kind { ALARM, TIMER, CLARIFICATION }
 
     private static final Pattern ALARM = Pattern.compile(
-            "(?:設定|設置|設個)?(?:鬧鐘|叫醒我)?(今天|明天)?(凌晨|早上|上午|中午|下午|晚上)?"
+            "(?:設定|設置|設個)?(?:鬧鐘|叫醒我)?(今天|明天)?(凌晨|午夜|早上|上午|中午|下午|晚上)?"
                     + "([0-9]{1,2})(?:點鐘?|:)(?:(半)|([0-9]{1,2})(?:分(?:鐘)?)?)?"
                     + "(?:的)?(?:鬧鐘|叫醒我)?");
     private static final Pattern TIMER = Pattern.compile(
@@ -51,7 +51,8 @@ final class ClockRequest {
         String period = match.group(2);
         int hour = number(match.group(3));
         int minute = match.group(4) == null ? number(match.group(5)) : 30;
-        if (hour > 23 || minute > 59 || (period != null && (hour < 1 || hour > 12))) {
+        boolean zeroHour = hour == 0 && ("凌晨".equals(period) || "午夜".equals(period));
+        if (hour > 23 || minute > 59 || (period != null && !zeroHour && (hour < 1 || hour > 12))) {
             return clarify("這個時間無法設定，請再確認小時與分鐘。");
         }
         if (period == null && hour >= 1 && hour <= 12) {
@@ -63,7 +64,9 @@ final class ClockRequest {
         if ("晚上".equals(period) && hour == 12) {
             return clarify("請確認是午夜零點，或中午十二點。");
         }
-        if ("下午".equals(period) || "晚上".equals(period) || "中午".equals(period)) {
+        if ("午夜".equals(period) || zeroHour) {
+            hour = 0;
+        } else if ("下午".equals(period) || "晚上".equals(period) || "中午".equals(period)) {
             hour = hour % 12 + 12;
         } else if (period != null) {
             hour %= 12;
