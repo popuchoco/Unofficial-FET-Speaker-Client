@@ -294,7 +294,9 @@ public final class MainActivity extends AppCompatActivity {
         }
         ExchangeLookup.Request exchange = ExchangeLookup.parse(input);
         if (exchange != null) {
-            startLookup("正在查詢牌告匯率…", "無法取得土地銀行牌告匯率，請稍後再試。",
+            startLookup("正在查詢臺灣土地銀行牌告匯率…",
+                    "無法取得臺灣土地銀行牌告匯率，請稍後再試；可開啟資料來源查看官方報價。",
+                    ExchangeLookup.SOURCE,
                     () -> ExchangeLookup.search(exchange));
             return;
         }
@@ -402,6 +404,10 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void startLookup(String loading, String failure, Lookup lookup) {
+        startLookup(loading, failure, null, lookup);
+    }
+
+    private void startLookup(String loading, String failure, String failureSource, Lookup lookup) {
         stopSpeech();
         int generation = lookupGeneration;
         voiceStatus.setText(loading);
@@ -410,7 +416,7 @@ public final class MainActivity extends AppCompatActivity {
             try {
                 response = lookup.fetch();
             } catch (java.io.IOException | org.json.JSONException error) {
-                response = new LookupAnswer(failure, null);
+                response = new LookupAnswer(failure, failureSource);
             }
             LookupAnswer answer = response;
             runOnUiThread(() -> {

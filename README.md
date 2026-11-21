@@ -18,14 +18,14 @@
 
 查天氣可在「服務設定 → 設定天氣資料來源」輸入中央氣象署授權碼與預設鄉鎮，再說「明天天氣」或「臺北市信義區明天天氣」。授權碼只在主動查詢時送往氣象署，地名在手機比對。
 
-試說「一百美元換成臺幣」或「現金三百三十臺幣換美元」。主動查詢時會下載臺灣土地銀行公開匯率，金額與幣別留在手機計算。
+試說「一百美元換成臺幣」或「現金三百三十臺幣換美元」。主動查詢時會下載臺灣土地銀行官方 CSV，金額與幣別留在手機計算。語音會說明資料來源及買賣方向；換算結果僅供參考，實際成交以銀行當時牌告為準。
 
 ## 開發
 
 需要 JDK 17 和 Android SDK 35。可用 Android Studio 開啟專案，或在設定 Android SDK 後執行以下指令。
 
 ```powershell
-.\gradlew.bat assembleDebug lintDebug
+.\gradlew.bat testDebugUnitTest lintDebug
 ```
 
 Android 版最低支援 Android 7.0。瀏覽器雛型仍可直接以瀏覽器開啟 `index.html`。

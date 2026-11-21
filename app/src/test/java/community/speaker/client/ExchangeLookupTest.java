@@ -9,8 +9,10 @@ public class ExchangeLookupTest {
     @Test public void usesBankBuyQuoteWhenExchangingForeignCurrencyIntoTaiwanDollars() throws Exception {
         ExchangeLookup.Request request = ExchangeLookup.parse("請幫我一百美元換成多少台幣？");
         LookupAnswer answer = ExchangeLookup.answer(RATES, request, 0);
+        assertTrue(answer.text.contains("資料來源為臺灣土地銀行公開牌告"));
         assertTrue(answer.text.contains("即期買入匯率 30"));
         assertTrue(answer.text.contains("100 USD約等於3000 TWD"));
+        assertTrue(answer.text.contains("結果僅供參考"));
         assertTrue(answer.text.contains("查詢時間"));
         assertEquals(ExchangeLookup.SOURCE, answer.source);
     }

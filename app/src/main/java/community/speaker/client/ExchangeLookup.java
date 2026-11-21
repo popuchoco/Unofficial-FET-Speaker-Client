@@ -99,13 +99,14 @@ final class ExchangeLookup {
             SimpleDateFormat time = new SimpleDateFormat("M月d日 H點mm分", Locale.TAIWAN);
             time.setTimeZone(TimeZone.getTimeZone("Asia/Taipei"));
             String method = (request.cash ? "現金" : "即期") + (bankBuysForeign ? "買入" : "賣出");
-            return new LookupAnswer("依臺灣土地銀行" + method + "匯率 " + number(quote) + "，"
+            return new LookupAnswer("資料來源為臺灣土地銀行公開牌告，" + method + "匯率 " + number(quote) + "，"
                     + number(request.amount) + " " + request.from + "約等於"
                     + number(converted.setScale(2, RoundingMode.HALF_UP)) + " " + request.to
-                    + "。查詢時間 " + time.format(new Date(fetchedAt)) + "。", SOURCE);
+                    + "。結果僅供參考，實際成交以銀行當時牌告為準。查詢時間 "
+                    + time.format(new Date(fetchedAt)) + "。", SOURCE);
         }
         if (!validFeed) throw new IOException("Exchange feed has no quote rows");
-        return new LookupAnswer("土地銀行目前沒有這個幣別可用的"
+        return new LookupAnswer("臺灣土地銀行目前沒有這個幣別可用的"
                 + (request.cash ? "現金" : "即期") + "牌告匯率。", SOURCE);
     }
 
