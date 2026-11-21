@@ -16,7 +16,13 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.media.AudioDeviceCallback;
+import android.media.AudioDeviceInfo;
+import android.media.AudioManager;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
+import android.view.View;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -54,6 +60,12 @@ public final class MainActivity extends AppCompatActivity {
     private TextView bluetoothStatus;
     private Button speakButton;
     private Button appearanceButton;
+    private TextView audioStatus;
+    private AudioManager audioManager;
+    private final AudioDeviceCallback audioDevices = new AudioDeviceCallback() {
+        @Override public void onAudioDevicesAdded(AudioDeviceInfo[] added) { updateAudioStatus(); }
+        @Override public void onAudioDevicesRemoved(AudioDeviceInfo[] removed) { updateAudioStatus(); }
+    };
     private TextToSpeech tts;
     private BleInspector ble;
     private MediaKeyDiagnostic mediaKeys;
@@ -83,19 +95,49 @@ public final class MainActivity extends AppCompatActivity {
                     .setAppearanceLightNavigationBars(getResources().getBoolean(R.bool.speaker_light_bars));
         }
 
-        label("愛講音箱社群版", 28);
-        appearanceButton = addButton(content, "外觀 · " + APPEARANCES[appearance], this::chooseAppearance);
-        startSection("音箱");
-        label("小狐狸與小愛講適用。請在系統設定配對音箱並選為媒體輸出。", 15);
-        addButton(section, "開啟系統藍牙設定", () -> open(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS)));
+        label("愛講音箱", 28);
+        startSection("我的音箱");
+        label("小狐狸與小愛講", 15);
+        audioStatus = label("", 15);
+        audioStatus.setAccessibilityLiveRegion(TextView.ACCESSIBILITY_LIVE_REGION_POLITE);
+        addButton(section, "設定藍牙音箱", () -> open(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS)),
+                com.google.android.material.R.attr.materialButtonStyle);
+        audioManager = getSystemService(AudioManager.class);
+        updateAudioStatus();
 
-        startSection("AI 服務");
-        label("請在各服務的官方頁面自行登入與對話。", 15);
+        startSection("語音助理");
+        label("音箱喚醒與自動回應尚未開放。", 15);
+
+        startSection("服務設定");
+        label("在官方頁面自行登入。", 15);
         addLink("開啟 ChatGPT", "https://chatgpt.com/");
         addLink("開啟 Gemini", "https://gemini.google.com/app");
         addLink("開啟 Claude", "https://claude.ai/");
+        addLink("開啟 KKBOX", "https://www.kkbox.com/tw/");
 
-        startSection("語音提問");
+        appearanceButton = addButton(content, "外觀 · " + APPEARANCES[appearance], this::chooseAppearance);
+        LinearLayout diagnostics = new LinearLayout(this);
+        diagnostics.setOrientation(LinearLayout.VERTICAL);
+        diagnostics.setVisibility(View.GONE);
+        MaterialButton diagnosticToggle = new MaterialButton(this, null, androidx.appcompat.R.attr.borderlessButtonStyle);
+        diagnosticToggle.setText("開啟測試工具");
+        diagnosticToggle.setMinHeight(dp(48));
+        diagnosticToggle.setOnClickListener(view -> {
+            boolean show = diagnostics.getVisibility() != View.VISIBLE;
+            diagnostics.setVisibility(show ? View.VISIBLE : View.GONE);
+            diagnosticToggle.setText(show ? "收起測試工具" : "開啟測試工具");
+            if (!show) stopDiagnostics();
+        });
+        content.addView(diagnosticToggle);
+        content.addView(diagnostics);
+
+        buildDiagnostics(diagnostics);
+        tts = new TextToSpeech(this, result -> new Handler(Looper.getMainLooper())
+                .post(() -> configureSpeech(result)));
+    }
+
+    private void buildDiagnostics(LinearLayout diagnostics) {
+        startSection(diagnostics, "收音測試");
         question = addTextInput("輸入或辨識問題");
         voiceStatus = label("", 15);
         voiceStatus.setAccessibilityLiveRegion(TextView.ACCESSIBILITY_LIVE_REGION_POLITE);
@@ -104,24 +146,21 @@ public final class MainActivity extends AppCompatActivity {
         addButton(section, "取消語音輸入", voiceInput::cancel, androidx.appcompat.R.attr.borderlessButtonStyle);
         addButton(section, "複製問題", this::copyQuestion, androidx.appcompat.R.attr.borderlessButtonStyle);
 
-        startSection("朗讀回覆");
-        reply = addTextInput("貼上要朗讀的文字");
+        startSection(diagnostics, "播放測試");
+        reply = addTextInput("輸入測試文字");
         Object retained = getLastCustomNonConfigurationInstance();
         if (retained instanceof String[]) {
             String[] drafts = (String[]) retained;
             reply.setText(drafts[0]);
             question.setText(drafts[1]);
         }
-        speakButton = addButton(section, "朗讀", this::speak, com.google.android.material.R.attr.materialButtonStyle);
+        speakButton = addButton(section, "播放測試語音", this::speak, com.google.android.material.R.attr.materialButtonStyle);
         speakButton.setEnabled(false);
         addButton(section, "停止朗讀", this::stopSpeech, androidx.appcompat.R.attr.borderlessButtonStyle);
         speechStatus = label("正在載入本機語音…", 15);
         speechStatus.setAccessibilityLiveRegion(TextView.ACCESSIBILITY_LIVE_REGION_POLITE);
 
-        startSection("音樂");
-        addLink("開啟 KKBOX", "https://www.kkbox.com/tw/");
-
-        startSection("音箱按鍵診斷");
+        startSection(diagnostics, "音箱按鍵診斷");
         label("先暫停其他 App 的媒體播放，再測試音箱上的播放或暫停按鍵。", 15);
         TextView keyStatus = label("", 15);
         keyStatus.setAccessibilityLiveRegion(TextView.ACCESSIBILITY_LIVE_REGION_POLITE);
@@ -130,7 +169,7 @@ public final class MainActivity extends AppCompatActivity {
         addButton(section, "結束測試", () -> mediaKeys.stop("已結束按鍵測試。"),
                 androidx.appcompat.R.attr.borderlessButtonStyle);
 
-        startSection("BLE 診斷");
+        startSection(diagnostics, "BLE 診斷");
         label("掃描附近裝置。選取結果可查看該裝置提供的 GATT 服務。", 15);
         addButton(section, "掃描 10 秒", this::requestScan);
         bluetoothStatus = label("", 15);
@@ -140,7 +179,6 @@ public final class MainActivity extends AppCompatActivity {
         section.addView(devices);
         ble = new BleInspector(this, bluetoothStatus::setText, this::showDevice);
 
-        tts = new TextToSpeech(this, result -> reply.post(() -> configureSpeech(result)));
     }
 
     private void configureSpeech(int result) {
@@ -317,6 +355,10 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void startSection(String title) {
+        startSection(content, title);
+    }
+
+    private void startSection(LinearLayout parent, String title) {
         MaterialCardView surface = new MaterialCardView(this);
         surface.setCardElevation(0);
         surface.setStrokeWidth(0);
@@ -325,7 +367,7 @@ public final class MainActivity extends AppCompatActivity {
                 com.google.android.material.R.attr.colorSurfaceContainerLow));
         LinearLayout.LayoutParams layout = new LinearLayout.LayoutParams(-1, -2);
         layout.topMargin = dp(12);
-        content.addView(surface, layout);
+        parent.addView(surface, layout);
         section = new LinearLayout(this);
         section.setPadding(dp(16), dp(12), dp(16), dp(12));
         section.setOrientation(LinearLayout.VERTICAL);
@@ -365,11 +407,44 @@ public final class MainActivity extends AppCompatActivity {
         return Math.round(getResources().getDisplayMetrics().density * value);
     }
 
+    private void updateAudioStatus() {
+        java.util.StringJoiner outputs = new java.util.StringJoiner("、");
+        if (audioManager != null) {
+            for (AudioDeviceInfo device : audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)) {
+                switch (device.getType()) {
+                    case AudioDeviceInfo.TYPE_BLUETOOTH_A2DP:
+                    case AudioDeviceInfo.TYPE_BLE_SPEAKER:
+                    case AudioDeviceInfo.TYPE_BLE_HEADSET:
+                        outputs.add(device.getProductName());
+                        break;
+                    default:
+                }
+            }
+        }
+        audioStatus.setText(outputs.length() == 0 ? "目前沒有可用的藍牙媒體輸出。"
+                : "可用的藍牙媒體輸出 " + outputs);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if (audioManager != null) {
+            audioManager.registerAudioDeviceCallback(audioDevices, new Handler(Looper.getMainLooper()));
+        }
+        updateAudioStatus();
+    }
+
+    private void stopDiagnostics() {
+        if (ble != null) ble.pause();
+        if (mediaKeys != null) mediaKeys.stop("已結束按鍵測試。");
+        if (voiceInput != null) voiceInput.cancel();
+        stopSpeech();
+    }
+
     @Override
     protected void onStop() {
-        if (ble != null) ble.pause();
-        if (mediaKeys != null) mediaKeys.stop("離開畫面，已結束按鍵測試。");
-        if (voiceInput != null) voiceInput.cancel();
+        stopDiagnostics();
+        if (audioManager != null) audioManager.unregisterAudioDeviceCallback(audioDevices);
         super.onStop();
     }
 
