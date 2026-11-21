@@ -46,6 +46,7 @@ public final class MainActivity extends AppCompatActivity {
     private static final int REMINDER_NOTIFICATIONS = 44;
     private static final int MAILBOX_MICROPHONE_PERMISSION = 45;
     private static final String LAST_DEVICE_NAME = "last_device_name";
+    private static final String MOENV_KEY = "moenv_api_key";
     private static final String[] APPEARANCES = { "跟隨系統", "淺色", "深色" };
     private static final int[] NIGHT_MODES = {
             AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM,
@@ -136,6 +137,7 @@ public final class MainActivity extends AppCompatActivity {
         addLink("開啟 Spotify", "https://open.spotify.com/");
         addLink("公視新聞影音", ServiceHandoff.PUBLIC_NEWS.url);
         addLink("LINE GO 叫車", ServiceHandoff.TAXI.url);
+        addButton(section, "設定空氣品質資料來源", this::configureAirQuality);
 
         appearanceButton = addButton(content, "外觀 · " + APPEARANCES[appearance], this::chooseAppearance);
         LinearLayout diagnostics = new LinearLayout(this);
@@ -269,6 +271,19 @@ public final class MainActivity extends AppCompatActivity {
             voiceStatus.setText(opened ? service.confirmation : "無法開啟官方服務。");
             return;
         }
+        String airPlace = AirQualityLookup.place(input);
+        if (airPlace != null) {
+            String key = getPreferences(MODE_PRIVATE).getString(MOENV_KEY, "");
+            if (airPlace.isEmpty() || airPlace.length() > 40) {
+                speakAssistantStatus("請指定測站，例如查空氣品質松山。");
+            } else if (key.isEmpty()) {
+                speakAssistantStatus("請先在服務設定輸入環境部資料授權碼。");
+            } else {
+                startLookup("正在查詢空氣品質…", "無法取得空氣品質，請確認授權碼或稍後再試。",
+                        () -> AirQualityLookup.search(airPlace, key));
+            }
+            return;
+        }
         String stock = StockLookup.symbol(input);
         if (stock != null) {
             if (stock.isEmpty() || stock.length() > 40) {
@@ -291,6 +306,28 @@ public final class MainActivity extends AppCompatActivity {
         }
         voiceStatus.setText(answer);
         if (speechReady) speakText(answer);
+    }
+
+    private void configureAirQuality() {
+        EditText input = new TextInputEditText(this);
+        input.setHint("環境部授權碼");
+        input.setSingleLine(true);
+        input.setSaveEnabled(false);
+        input.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        input.setText(getPreferences(MODE_PRIVATE).getString(MOENV_KEY, ""));
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("空氣品質資料來源")
+                .setMessage("使用環境部開放資料平台核發的授權碼。授權碼保存在此手機，只有主動查詢才會送往環境部。")
+                .setView(input)
+                .setNeutralButton("開啟環境部", (dialog, button) ->
+                        open(new Intent(Intent.ACTION_VIEW, Uri.parse(AirQualityLookup.SOURCE))))
+                .setNegativeButton("取消", null)
+                .setPositiveButton("儲存", (dialog, button) -> {
+                    String key = input.getText().toString().trim();
+                    getPreferences(MODE_PRIVATE).edit().putString(MOENV_KEY, key).apply();
+                })
+                .show();
     }
 
     private void lookupWikipedia(String topic) {
@@ -342,7 +379,7 @@ public final class MainActivity extends AppCompatActivity {
 
     private void requestReminder(ReminderRequest request) {
         if (request.seconds == 0) {
-            reportReminder("請說明多久後要提醒什麼，例如三分鐘後提醒我關火。");
+            speakAssistantStatus("請說明多久後要提醒什麼，例如三分鐘後提醒我關火。");
             return;
         }
         if (Build.VERSION.SDK_INT >= 33 &&
@@ -352,19 +389,19 @@ public final class MainActivity extends AppCompatActivity {
             return;
         }
         if (!ReminderReceiver.notificationsAvailable(this)) {
-            reportReminder("請先在 Android 設定開啟愛狐說的通知。");
+            speakAssistantStatus("請先在 Android 設定開啟愛狐說的通知。");
             return;
         }
         ReminderReceiver.Entry entry = ReminderReceiver.add(this, request);
         if (entry == null) {
-            reportReminder("未能儲存提醒，請再試一次。");
+            speakAssistantStatus("未能儲存提醒，請再試一次。");
             return;
         }
         String time = android.text.format.DateFormat.getTimeFormat(this).format(new java.util.Date(entry.due));
-        reportReminder("已安排 " + time + " 提醒你" + entry.message + "。通知可能因省電設定延後。");
+        speakAssistantStatus("已安排 " + time + " 提醒你" + entry.message + "。通知可能因省電設定延後。");
     }
 
-    private void reportReminder(String message) {
+    private void speakAssistantStatus(String message) {
         voiceStatus.setText(message);
         if (speechReady) speakText(message);
     }
@@ -630,7 +667,7 @@ public final class MainActivity extends AppCompatActivity {
                     ReminderReceiver.restore(this);
                     requestReminder(reminder);
                 } else {
-                    reportReminder("未允許通知，這次提醒未儲存。");
+                    speakAssistantStatus("未允許通知，這次提醒未儲存。");
                 }
             }
             return;
