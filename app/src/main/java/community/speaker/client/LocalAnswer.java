@@ -49,6 +49,10 @@ final class LocalAnswer {
             return formatted(now, "今天是yyyy年M月d日EEEE") + "。";
         }
         String numeric = replaceChineseNumbers(query);
+        LunarDateRequest lunarDate = LunarDateRequest.parse(numeric, now);
+        if (lunarDate != null) {
+            return lunarDate.error == null ? lunarDate.answer() : lunarDate.error;
+        }
         Matcher date = DATE.matcher(numeric);
         if (date.find() && (numeric.contains("星期") || numeric.contains("禮拜"))) {
             Calendar day = (Calendar) now.clone();
