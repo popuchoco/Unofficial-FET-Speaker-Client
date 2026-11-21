@@ -1,7 +1,7 @@
 package community.speaker.client;
 
 final class SharedTextRequest {
-    static final int MAX_CHARS = 4000;
+    static final int MAX_CHARS = 20_000;
 
     private SharedTextRequest() {}
 

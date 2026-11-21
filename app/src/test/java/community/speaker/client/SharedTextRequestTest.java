@@ -12,6 +12,16 @@ public class SharedTextRequestTest {
         assertNull(SharedTextRequest.normalize(" \n  "));
     }
 
+    @Test public void acceptsLongAnswersWithinSegmentedSpeechLimit() {
+        StringBuilder longText = new StringBuilder();
+        while (longText.length() < 5000) longText.append('答');
+        assertEquals(5000, SharedTextRequest.normalize(longText.toString()).length());
+
+        while (longText.length() < SharedTextRequest.MAX_CHARS) longText.append('答');
+        assertEquals(SharedTextRequest.MAX_CHARS,
+                SharedTextRequest.normalize(longText.toString()).length());
+    }
+
     @Test public void rejectsTextBeyondTheSpeechLimit() {
         StringBuilder longText = new StringBuilder();
         while (longText.length() <= SharedTextRequest.MAX_CHARS) longText.append('答');
