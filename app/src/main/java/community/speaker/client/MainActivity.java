@@ -65,6 +65,15 @@ public final class MainActivity extends AppCompatActivity {
     private EditText question;
     private VoiceInput voiceInput;
     private TextView voiceStatus;
+    private TextView chatGptStatus;
+    private Button chatGptConnectionButton;
+    private ChatGptProvider chatGptProvider;
+    private final ChatGptConversation chatGptConversation = new ChatGptConversation();
+    private final java.util.concurrent.ExecutorService chatGptExecutor =
+            java.util.concurrent.Executors.newSingleThreadExecutor();
+    private java.util.concurrent.Future<?> chatGptTask;
+    private volatile ChatGptProvider.AuthorizationRequest activeChatGptAuthorization;
+    private volatile boolean chatGptLoginCancelled;
     private Button lookupSource;
     private String lookupSourceUrl;
     private final java.util.concurrent.ExecutorService lookupExecutor = java.util.concurrent.Executors.newSingleThreadExecutor();
@@ -111,6 +120,7 @@ public final class MainActivity extends AppCompatActivity {
         content.setFocusableInTouchMode(true);
         setContentView(scroll);
         content.requestFocus();
+        chatGptProvider = new ChatGptProvider(this);
         if (Build.VERSION.SDK_INT >= 27) {
             getWindow().setNavigationBarColor(getColor(R.color.speaker_surface));
             androidx.core.view.WindowCompat.getInsetsController(getWindow(), scroll)
@@ -128,7 +138,21 @@ public final class MainActivity extends AppCompatActivity {
         updateAudioStatus();
 
         startSection("語音助理");
-        label("音箱喚醒與自動回應尚未開放。", 15);
+        label("用手機麥克風提問，回答會由本機中文語音播放至目前的藍牙音箱。音箱喚醒與按鍵觸發仍待實機接入。", 15);
+        question = addTextInput("問愛狐說");
+        voiceStatus = label("準備就緒。", 15);
+        voiceStatus.setAccessibilityLiveRegion(TextView.ACCESSIBILITY_LIVE_REGION_POLITE);
+        voiceInput = new VoiceInput(this, voiceStatus::setText, transcript -> {
+            question.setText(transcript);
+            answerLocalQuestion();
+        });
+        addButton(section, "開始說話", this::requestVoiceInput,
+                com.google.android.material.R.attr.materialButtonStyle);
+        addButton(section, "送出問題", this::answerLocalQuestion);
+        chatGptStatus = label("", 15);
+        chatGptStatus.setAccessibilityLiveRegion(TextView.ACCESSIBILITY_LIVE_REGION_POLITE);
+        chatGptConnectionButton = addButton(section, "連結 ChatGPT", this::manageChatGpt);
+        updateChatGptStatus();
 
         addButton(section, "查看本機提醒", this::showReminders);
         voiceMessages = new VoiceMessages(this);
@@ -169,22 +193,11 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void buildDiagnostics(LinearLayout diagnostics) {
-        startSection(diagnostics, "收音測試");
-        question = addTextInput("輸入或辨識問題");
-        voiceStatus = label("", 15);
-        voiceStatus.setAccessibilityLiveRegion(TextView.ACCESSIBILITY_LIVE_REGION_POLITE);
-        voiceInput = new VoiceInput(this, voiceStatus::setText, transcript -> {
-            question.setText(transcript);
-            answerLocalQuestion();
-        });
-        addButton(section, "測試助理指令", this::answerLocalQuestion);
+        startSection(diagnostics, "資料來源");
         lookupSource = addButton(section, "開啟資料來源", () -> {
             if (lookupSourceUrl != null) open(new Intent(Intent.ACTION_VIEW, Uri.parse(lookupSourceUrl)));
         }, androidx.appcompat.R.attr.borderlessButtonStyle);
         lookupSource.setVisibility(View.GONE);
-        addButton(section, "開始語音輸入", this::requestVoiceInput);
-        addButton(section, "取消語音輸入", voiceInput::cancel, androidx.appcompat.R.attr.borderlessButtonStyle);
-        addButton(section, "複製問題", this::copyQuestion, androidx.appcompat.R.attr.borderlessButtonStyle);
 
         startSection(diagnostics, "播放測試");
         reply = addTextInput("輸入測試文字");
@@ -286,7 +299,7 @@ public final class MainActivity extends AppCompatActivity {
         ServiceHandoff service = ServiceHandoff.parse(input);
         if (service != null) {
             boolean opened = open(new Intent(Intent.ACTION_VIEW, Uri.parse(service.url)));
-            voiceStatus.setText(opened ? service.confirmation : "無法開啟官方服務。");
+            speakAssistantStatus(opened ? service.confirmation : "無法開啟官方服務。");
             return;
         }
         WeatherLookup.Request weather = WeatherLookup.parse(input);
@@ -332,11 +345,154 @@ public final class MainActivity extends AppCompatActivity {
         }
         String answer = LocalAnswer.reply(input, java.util.Calendar.getInstance());
         if (answer == null) {
-            voiceStatus.setText("這個問題目前無法離線回答。");
+            if (chatGptProvider.isConnected() && !chatGptProvider.selectedModelSlug().isEmpty()) {
+                String model = chatGptProvider.selectedModelSlug();
+                startLookup("正在詢問 ChatGPT…", "ChatGPT 暫時無法回答，請檢查連線或稍後再試。",
+                        () -> new LookupAnswer(chatGptConversation.ask(input,
+                                messages -> chatGptProvider.respond(model, messages)), null));
+            } else if (chatGptProvider.isConnected()) {
+                speakAssistantStatus("ChatGPT 已連結，請先選擇可用模型。");
+            } else {
+                speakAssistantStatus("這個問題目前無法離線回答。你可以在此連結 ChatGPT，或改說本機支援的指令。");
+            }
             return;
         }
         voiceStatus.setText(answer);
         if (speechReady) speakText(answer);
+    }
+
+    private void updateChatGptStatus() {
+        if (chatGptStatus == null || chatGptConnectionButton == null || chatGptProvider == null) return;
+        if (chatGptProvider.isConnected()) {
+            String model = chatGptProvider.selectedModelName();
+            chatGptStatus.setText(model.isEmpty()
+                    ? "ChatGPT 已連結，尚未選擇模型。未由本機處理的問題會送至 ChatGPT。"
+                    : "ChatGPT 已連結 · " + model + "。未由本機處理的問題會送至 ChatGPT。");
+            chatGptConnectionButton.setText("管理 ChatGPT 連結");
+        } else {
+            chatGptStatus.setText("只有送出問題後才會連線。使用者可用自己的 ChatGPT 帳戶授權，不需 API 金鑰或專案伺服器。");
+            chatGptConnectionButton.setText("連結 ChatGPT");
+        }
+    }
+
+    private void manageChatGpt() {
+        if (!chatGptProvider.isConnected()) {
+            new MaterialAlertDialogBuilder(this)
+                    .setTitle("連結 ChatGPT")
+                    .setMessage("將在官方登入頁面由你自行登入並授權愛狐說使用 ChatGPT 方案用量。問題會由此裝置直接送至 OpenAI；對話脈絡只暫存於記憶體，不寫入裝置。")
+                    .setPositiveButton("前往登入", (dialog, which) -> connectChatGpt())
+                    .setNegativeButton("取消", null)
+                    .show();
+            return;
+        }
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("ChatGPT 設定")
+                .setMessage("目前模型：" + (chatGptProvider.selectedModelName().isEmpty()
+                        ? "尚未選擇" : chatGptProvider.selectedModelName())
+                        + "\n對話脈絡只暫存在記憶體，關閉 App 後清除。")
+                .setPositiveButton("選擇模型", (dialog, which) -> loadChatGptModels(true))
+                .setNeutralButton("中斷連結", (dialog, which) -> {
+                    cancelLookup();
+                    chatGptProvider.clearConnection();
+                    chatGptConversation.clear();
+                    updateChatGptStatus();
+                    speakAssistantStatus("已移除這部手機上的 ChatGPT 連結。");
+                })
+                .setNegativeButton("關閉", null)
+                .show();
+    }
+
+    private void connectChatGpt() {
+        if (chatGptTask != null && !chatGptTask.isDone()) {
+            speakAssistantStatus("ChatGPT 登入流程已在進行中，請完成瀏覽器授權後返回愛狐說。");
+            return;
+        }
+        chatGptLoginCancelled = false;
+        chatGptStatus.setText("正在準備 ChatGPT 官方登入…");
+        chatGptTask = chatGptExecutor.submit(() -> {
+            ChatGptProvider.AuthorizationRequest attempt = null;
+            try {
+                attempt = chatGptProvider.beginAuthorization();
+                activeChatGptAuthorization = attempt;
+                ChatGptProvider.AuthorizationRequest request = attempt;
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        request.close();
+                        return;
+                    }
+                    boolean opened = open(new Intent(Intent.ACTION_VIEW, Uri.parse(request.authorizationUrl)));
+                    if (!opened) {
+                        chatGptLoginCancelled = true;
+                        request.close();
+                        chatGptStatus.setText("無法開啟 ChatGPT 官方登入頁面。");
+                    } else {
+                        chatGptStatus.setText("請在瀏覽器完成登入與授權，再返回愛狐說。");
+                    }
+                });
+                chatGptProvider.finishAuthorization(attempt);
+                activeChatGptAuthorization = null;
+                java.util.List<ChatGptProvider.Model> models = chatGptProvider.listModels();
+                if (chatGptProvider.selectedModelSlug().isEmpty()) chatGptProvider.selectModel(models.get(0));
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    updateChatGptStatus();
+                    speakAssistantStatus("ChatGPT 已連結，可以直接說出問題。");
+                });
+            } catch (java.io.IOException error) {
+                if (attempt != null) attempt.close();
+                activeChatGptAuthorization = null;
+                if (!chatGptLoginCancelled && !Thread.currentThread().isInterrupted()) runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    if (chatGptProvider.isConnected()) {
+                        updateChatGptStatus();
+                        chatGptStatus.setText((error.getMessage() == null
+                                ? "無法載入 ChatGPT 設定。" : error.getMessage()) + " 連結仍保留，可稍後重試。");
+                    } else {
+                        chatGptStatus.setText(error.getMessage() == null
+                                ? "ChatGPT 連結失敗，請稍後重試。" : error.getMessage());
+                        chatGptConnectionButton.setText("重新連結 ChatGPT");
+                    }
+                });
+            }
+        });
+    }
+
+    private void loadChatGptModels(boolean showPicker) {
+        chatGptStatus.setText("正在讀取 ChatGPT 可用模型…");
+        chatGptExecutor.submit(() -> {
+            try {
+                java.util.List<ChatGptProvider.Model> models = chatGptProvider.listModels();
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    updateChatGptStatus();
+                    if (showPicker) {
+                        ChatGptProvider.Model[] options = models.toArray(new ChatGptProvider.Model[0]);
+                        int selected = 0;
+                        String current = chatGptProvider.selectedModelSlug();
+                        for (int i = 0; i < options.length; i++) if (options[i].slug.equals(current)) selected = i;
+                        new MaterialAlertDialogBuilder(this)
+                                .setTitle("選擇 ChatGPT 模型")
+                                .setSingleChoiceItems(options, selected, (dialog, choice) -> {
+                                    try {
+                                        chatGptProvider.selectModel(options[choice]);
+                                        updateChatGptStatus();
+                                    } catch (java.io.IOException error) {
+                                        chatGptStatus.setText("無法儲存模型選擇。");
+                                    }
+                                    dialog.dismiss();
+                                })
+                                .setNegativeButton("取消", null)
+                                .show();
+                    }
+                });
+            } catch (java.io.IOException error) {
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    chatGptStatus.setText(error.getMessage() == null
+                            ? "無法讀取 ChatGPT 模型。" : error.getMessage());
+                });
+            }
+        });
     }
 
     private void lookupWeather(WeatherLookup.Request request) {
@@ -1008,6 +1164,10 @@ public final class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         lookupExecutor.shutdownNow();
+        chatGptLoginCancelled = true;
+        ChatGptProvider.AuthorizationRequest authorization = activeChatGptAuthorization;
+        if (authorization != null) authorization.close();
+        chatGptExecutor.shutdownNow();
         if (mailboxDialog != null) mailboxDialog.dismiss();
         activeUtterance = null;
         if (tts != null) tts.shutdown();
