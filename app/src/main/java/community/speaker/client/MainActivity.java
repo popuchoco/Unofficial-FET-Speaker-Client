@@ -43,6 +43,7 @@ import java.util.Set;
 public final class MainActivity extends AppCompatActivity {
     private static final int BLE_PERMISSIONS = 42;
     private static final int MICROPHONE_PERMISSION = 43;
+    private static final int REMINDER_NOTIFICATIONS = 44;
     private static final String LAST_DEVICE_NAME = "last_device_name";
     private static final String[] APPEARANCES = { "跟隨系統", "淺色", "深色" };
     private static final int[] NIGHT_MODES = {
@@ -58,6 +59,7 @@ public final class MainActivity extends AppCompatActivity {
     private EditText question;
     private VoiceInput voiceInput;
     private TextView voiceStatus;
+    private ReminderRequest pendingReminder;
     private TextView speechStatus;
     private TextView bluetoothStatus;
     private TextView lastDevice;
@@ -110,6 +112,8 @@ public final class MainActivity extends AppCompatActivity {
 
         startSection("語音助理");
         label("音箱喚醒與自動回應尚未開放。", 15);
+
+        addButton(section, "查看本機提醒", this::showReminders);
 
         startSection("服務設定");
         label("在官方頁面自行登入。", 15);
@@ -230,6 +234,11 @@ public final class MainActivity extends AppCompatActivity {
             voiceStatus.setText("請先說出或輸入問題。");
             return;
         }
+        ReminderRequest reminder = ReminderRequest.parse(input);
+        if (reminder != null) {
+            requestReminder(reminder);
+            return;
+        }
         ClockRequest clock = ClockRequest.parse(input);
         if (clock != null) {
             handleClockRequest(clock);
@@ -242,6 +251,65 @@ public final class MainActivity extends AppCompatActivity {
         }
         voiceStatus.setText(answer);
         if (speechReady) speakText(answer);
+    }
+
+    private void requestReminder(ReminderRequest request) {
+        if (request.seconds == 0) {
+            reportReminder("請說明多久後要提醒什麼，例如三分鐘後提醒我關火。");
+            return;
+        }
+        if (Build.VERSION.SDK_INT >= 33 &&
+                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            pendingReminder = request;
+            requestPermissions(new String[] { Manifest.permission.POST_NOTIFICATIONS }, REMINDER_NOTIFICATIONS);
+            return;
+        }
+        if (!ReminderReceiver.notificationsAvailable(this)) {
+            reportReminder("請先在 Android 設定開啟愛狐說的通知。");
+            return;
+        }
+        ReminderReceiver.Entry entry = ReminderReceiver.add(this, request);
+        if (entry == null) {
+            reportReminder("未能儲存提醒，請再試一次。");
+            return;
+        }
+        String time = android.text.format.DateFormat.getTimeFormat(this).format(new java.util.Date(entry.due));
+        reportReminder("已安排 " + time + " 提醒你" + entry.message + "。通知可能因省電設定延後。");
+    }
+
+    private void reportReminder(String message) {
+        voiceStatus.setText(message);
+        if (speechReady) speakText(message);
+    }
+
+    private void showReminders() {
+        java.util.List<ReminderReceiver.Entry> entries = ReminderReceiver.list(this);
+        MaterialAlertDialogBuilder dialog = new MaterialAlertDialogBuilder(this)
+                .setTitle("本機提醒").setNegativeButton("關閉", null);
+        if (entries.isEmpty()) {
+            dialog.setMessage("目前沒有待處理的提醒。");
+        } else {
+            java.text.DateFormat format = java.text.DateFormat.getDateTimeInstance(
+                    java.text.DateFormat.SHORT, java.text.DateFormat.SHORT);
+            String[] labels = new String[entries.size()];
+            for (int index = 0; index < entries.size(); index++) {
+                ReminderReceiver.Entry entry = entries.get(index);
+                labels[index] = format.format(new java.util.Date(entry.due)) + "\n" + entry.message;
+            }
+            dialog.setItems(labels, (picker, index) -> {
+                ReminderReceiver.Entry entry = entries.get(index);
+                new MaterialAlertDialogBuilder(this).setTitle("取消提醒？").setMessage(entry.message)
+                        .setNegativeButton("保留", null)
+                        .setPositiveButton("取消提醒", (confirmation, button) -> {
+                            if (!ReminderReceiver.cancel(this, entry)) {
+                                android.widget.Toast.makeText(this, "無法取消提醒，請再試一次。",
+                                        android.widget.Toast.LENGTH_SHORT).show();
+                            }
+                            showReminders();
+                        }).show();
+            });
+        }
+        dialog.show();
     }
 
     private void handleClockRequest(ClockRequest request) {
@@ -358,6 +426,19 @@ public final class MainActivity extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int request, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(request, permissions, results);
+        if (request == REMINDER_NOTIFICATIONS) {
+            ReminderRequest reminder = pendingReminder;
+            pendingReminder = null;
+            if (reminder != null) {
+                if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) {
+                    ReminderReceiver.restore(this);
+                    requestReminder(reminder);
+                } else {
+                    reportReminder("未允許通知，這次提醒未儲存。");
+                }
+            }
+            return;
+        }
         if (request == MICROPHONE_PERMISSION) {
             if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                 requestVoiceInput();
@@ -500,6 +581,7 @@ public final class MainActivity extends AppCompatActivity {
             audioManager.registerAudioDeviceCallback(audioDevices, new Handler(Looper.getMainLooper()));
         }
         updateAudioStatus();
+        ReminderReceiver.restore(this);
     }
 
     private void stopDiagnostics() {
