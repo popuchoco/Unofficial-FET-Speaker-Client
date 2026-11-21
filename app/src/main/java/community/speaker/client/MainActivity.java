@@ -909,6 +909,7 @@ public final class MainActivity extends AppCompatActivity {
         new MaterialAlertDialogBuilder(this).setTitle(title).setItems(
                 new String[] { "播放留言", "刪除留言" }, (dialog, selected) -> {
                     if (selected == 0) {
+                        stopSpeech();
                         mailboxStatus.setText("正在播放留言。");
                         voiceMessages.play(recording, mailboxStatus::setText);
                     } else {
