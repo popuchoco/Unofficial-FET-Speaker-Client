@@ -67,6 +67,7 @@ public final class MainActivity extends AppCompatActivity {
     private EditText question;
     private VoiceInput voiceInput;
     private TextView voiceStatus;
+    private String pendingSharedRead;
     private TextView chatGptStatus;
     private Button chatGptConnectionButton;
     private ChatGptProvider chatGptProvider;
@@ -203,6 +204,7 @@ public final class MainActivity extends AppCompatActivity {
         buildDiagnostics(diagnostics);
         tts = new TextToSpeech(this, result -> new Handler(Looper.getMainLooper())
                 .post(() -> configureSpeech(result)));
+        handleSharedText(getIntent());
     }
 
     private void buildDiagnostics(LinearLayout diagnostics) {
@@ -271,6 +273,55 @@ public final class MainActivity extends AppCompatActivity {
         speechReady = true;
         speakButton.setEnabled(true);
         speechStatus.setText("本機中文語音就緒。");
+        if (pendingSharedRead != null) {
+            String text = pendingSharedRead;
+            pendingSharedRead = null;
+            voiceStatus.setText("正在朗讀分享的回答。");
+            speakText(text);
+        }
+    }
+
+    private void handleSharedText(Intent intent) {
+        if (intent == null || !Intent.ACTION_SEND.equals(intent.getAction())) return;
+        CharSequence shared = intent.getCharSequenceExtra(Intent.EXTRA_TEXT);
+        String input = shared == null ? null : shared.toString();
+        setIntent(new Intent(this, MainActivity.class));
+        String text;
+        try {
+            text = SharedTextRequest.normalize(input);
+        } catch (IllegalArgumentException tooLong) {
+            voiceStatus.setText("分享內容太長，請分段後再分享。");
+            return;
+        }
+        if (text == null) {
+            voiceStatus.setText("沒有收到可朗讀的文字。");
+            return;
+        }
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("朗讀分享的回答")
+                .setMessage(text)
+                .setPositiveButton("朗讀", (dialog, which) -> readSharedText(text))
+                .setNegativeButton("關閉", null)
+                .show();
+    }
+
+    private void readSharedText(String text) {
+        cancelLookup();
+        stopSpeech();
+        if (!speechReady) {
+            pendingSharedRead = text;
+            voiceStatus.setText("本機語音載入完成後會開始朗讀。");
+            return;
+        }
+        voiceStatus.setText("正在朗讀分享的回答。");
+        speakText(text);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleSharedText(intent);
     }
 
     private void speak() {
