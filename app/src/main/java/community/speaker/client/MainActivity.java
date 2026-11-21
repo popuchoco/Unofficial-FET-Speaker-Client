@@ -42,6 +42,7 @@ import java.util.Set;
 public final class MainActivity extends AppCompatActivity {
     private static final int BLE_PERMISSIONS = 42;
     private static final int MICROPHONE_PERMISSION = 43;
+    private static final String LAST_DEVICE_NAME = "last_device_name";
     private static final String[] APPEARANCES = { "跟隨系統", "淺色", "深色" };
     private static final int[] NIGHT_MODES = {
             AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM,
@@ -58,6 +59,7 @@ public final class MainActivity extends AppCompatActivity {
     private TextView voiceStatus;
     private TextView speechStatus;
     private TextView bluetoothStatus;
+    private TextView lastDevice;
     private Button speakButton;
     private Button appearanceButton;
     private TextView audioStatus;
@@ -95,7 +97,7 @@ public final class MainActivity extends AppCompatActivity {
                     .setAppearanceLightNavigationBars(getResources().getBoolean(R.bool.speaker_light_bars));
         }
 
-        label("愛講音箱", 28);
+        label("愛狐說", 28);
         startSection("我的音箱");
         label("小狐狸與小愛講", 15);
         audioStatus = label("", 15);
@@ -142,7 +144,11 @@ public final class MainActivity extends AppCompatActivity {
         question = addTextInput("輸入或辨識問題");
         voiceStatus = label("", 15);
         voiceStatus.setAccessibilityLiveRegion(TextView.ACCESSIBILITY_LIVE_REGION_POLITE);
-        voiceInput = new VoiceInput(this, voiceStatus::setText, question::setText);
+        voiceInput = new VoiceInput(this, voiceStatus::setText, transcript -> {
+            question.setText(transcript);
+            answerLocalQuestion();
+        });
+        addButton(section, "測試離線問答", this::answerLocalQuestion);
         addButton(section, "開始語音輸入", this::requestVoiceInput);
         addButton(section, "取消語音輸入", voiceInput::cancel, androidx.appcompat.R.attr.borderlessButtonStyle);
         addButton(section, "複製問題", this::copyQuestion, androidx.appcompat.R.attr.borderlessButtonStyle);
@@ -173,6 +179,8 @@ public final class MainActivity extends AppCompatActivity {
         startSection(diagnostics, "BLE 診斷");
         label("掃描附近裝置。選取結果可查看該裝置提供的 GATT 服務。", 15);
         addButton(section, "掃描 10 秒", this::requestScan);
+        lastDevice = label("", 15);
+        updateLastDevice();
         bluetoothStatus = label("", 15);
         bluetoothStatus.setAccessibilityLiveRegion(TextView.ACCESSIBILITY_LIVE_REGION_POLITE);
         devices = new LinearLayout(this);
@@ -212,6 +220,25 @@ public final class MainActivity extends AppCompatActivity {
             speechStatus.setText("請先貼上要朗讀的文字。");
             return;
         }
+        speakText(text);
+    }
+
+    private void answerLocalQuestion() {
+        String input = question.getText().toString().trim();
+        if (input.isEmpty()) {
+            voiceStatus.setText("請先說出或輸入問題。");
+            return;
+        }
+        String answer = LocalAnswer.reply(input, java.util.Calendar.getInstance());
+        if (answer == null) {
+            voiceStatus.setText("這個問題目前無法離線回答。");
+            return;
+        }
+        voiceStatus.setText(answer);
+        if (speechReady) speakText(answer);
+    }
+
+    private void speakText(String text) {
         if (text.length() > TextToSpeech.getMaxSpeechInputLength()) {
             speechStatus.setText("文字超過單次朗讀上限，請分段貼上。");
             return;
@@ -275,13 +302,14 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private String[] scanPermissions() {
-        if (Build.VERSION.SDK_INT >= 31) {
-            return new String[] { Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT };
-        }
-        return new String[] { Manifest.permission.ACCESS_FINE_LOCATION };
+        return new String[] { Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT };
     }
 
     private void requestScan() {
+        if (Build.VERSION.SDK_INT < 31) {
+            bluetoothStatus.setText("BLE 掃描需 Android 12 以上。仍可從系統設定配對藍牙音箱。");
+            return;
+        }
         String[] permissions = scanPermissions();
         for (String permission : permissions) {
             if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
@@ -318,8 +346,17 @@ public final class MainActivity extends AppCompatActivity {
         startScan();
     }
 
-    private void showDevice(BluetoothDevice device, String description) {
-        addButton(devices, description, () -> ble.inspect(device));
+    private void updateLastDevice() {
+        String name = getPreferences(MODE_PRIVATE).getString(LAST_DEVICE_NAME, "");
+        lastDevice.setText(name.isEmpty() ? "" : "上次查看的裝置 " + name);
+    }
+
+    private void showDevice(BluetoothDevice device, String name) {
+        addButton(devices, name + "\n" + device.getAddress(), () -> {
+            getPreferences(MODE_PRIVATE).edit().putString(LAST_DEVICE_NAME, name).apply();
+            updateLastDevice();
+            ble.inspect(device);
+        });
     }
 
     private void addLink(String title, String uri) {

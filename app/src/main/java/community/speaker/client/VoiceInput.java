@@ -71,7 +71,6 @@ final class VoiceInput {
                         return;
                     }
                     transcript.accept(matches.get(0));
-                    status.accept("辨識完成，可先編輯再複製。");
                 }
                 @Override public void onPartialResults(Bundle results) { }
                 @Override public void onEvent(int type, Bundle params) { }

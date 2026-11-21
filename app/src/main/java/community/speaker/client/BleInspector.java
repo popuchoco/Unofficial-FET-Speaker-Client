@@ -61,7 +61,7 @@ final class BleInspector {
                         if (!seen.add(device.getAddress())) return;
                         String name = result.getScanRecord() == null ? null : result.getScanRecord().getDeviceName();
                         String label = name == null || name.isEmpty() ? "未命名裝置" : name;
-                        deviceFound.accept(device, label + "\n" + device.getAddress());
+                        deviceFound.accept(device, label);
                     });
                 }
 
