@@ -28,6 +28,8 @@ final class BleInspector {
     private BluetoothLeScanner scanner;
     private ScanCallback scanCallback;
     private BluetoothGatt connection;
+    private BluetoothGattCharacteristic pendingBatteryRead;
+    private String discoveredServices;
     private final Runnable scanTimeout;
     private final Runnable connectionTimeout;
 
@@ -110,15 +112,51 @@ final class BleInspector {
                             return;
                         }
                         StringBuilder summary = new StringBuilder();
+                        BluetoothGattCharacteristic battery = null;
                         for (BluetoothGattService service : gatt.getServices()) {
                             summary.append("\n\n服務 ").append(service.getUuid());
                             for (BluetoothGattCharacteristic characteristic : service.getCharacteristics()) {
                                 summary.append("\n").append(characteristic.getUuid())
                                         .append(" · ").append(properties(characteristic.getProperties()));
                             }
+                            if (BleStandardData.BATTERY_SERVICE.equals(service.getUuid())) {
+                                battery = service.getCharacteristic(BleStandardData.BATTERY_LEVEL);
+                            }
                         }
-                        finishConnection(summary.length() == 0 ? "裝置未列出 GATT 服務。" : "GATT 服務與特徵" + summary);
+                        String details = summary.length() == 0 ? "裝置未列出 GATT 服務。"
+                                : "GATT 服務與特徵" + summary;
+                        if (battery == null) {
+                            finishConnection(details + "\n沒有標準電量特徵。");
+                            return;
+                        }
+                        if ((battery.getProperties() & BluetoothGattCharacteristic.PROPERTY_READ) == 0) {
+                            finishConnection(details + "\n標準電量特徵不可讀取。");
+                            return;
+                        }
+                        discoveredServices = details;
+                        pendingBatteryRead = battery;
+                        try {
+                            if (!gatt.readCharacteristic(battery)) {
+                                finishConnection(details + "\n無法開始讀取標準電量。");
+                            }
+                        } catch (SecurityException error) {
+                            finishConnection("BLE 連線權限已取消。");
+                        }
                     });
+                }
+
+                @SuppressWarnings("deprecation")
+                @Override public void onCharacteristicRead(BluetoothGatt gatt,
+                                                           BluetoothGattCharacteristic characteristic,
+                                                           int code) {
+                    byte[] value = characteristic.getValue();
+                    ui.post(() -> finishBatteryRead(gatt, characteristic, value, code));
+                }
+
+                @Override public void onCharacteristicRead(BluetoothGatt gatt,
+                                                           BluetoothGattCharacteristic characteristic,
+                                                           byte[] value, int code) {
+                    ui.post(() -> finishBatteryRead(gatt, characteristic, value, code));
                 }
             }, BluetoothDevice.TRANSPORT_LE);
             if (connection == null) {
@@ -139,6 +177,19 @@ final class BleInspector {
         if ((flags & BluetoothGattCharacteristic.PROPERTY_NOTIFY) != 0) labels.add("通知");
         if ((flags & BluetoothGattCharacteristic.PROPERTY_INDICATE) != 0) labels.add("指示");
         return labels.length() == 0 ? "0x" + Integer.toHexString(flags) : labels.toString();
+    }
+
+    private void finishBatteryRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic,
+                                   byte[] value, int code) {
+        if (connection != gatt || pendingBatteryRead != characteristic) return;
+        Integer percent = code == BluetoothGatt.GATT_SUCCESS ? BleStandardData.batteryPercent(value) : null;
+        String result = discoveredServices;
+        if (percent == null) {
+            result += "\n標準電量目前無法讀取，GATT 狀態 " + code + "。";
+        } else {
+            result += "\n標準電量 " + percent + "%。";
+        }
+        finishConnection(result);
     }
 
     void pause() {
@@ -172,6 +223,8 @@ final class BleInspector {
 
     private void closeConnection() {
         ui.removeCallbacks(connectionTimeout);
+        pendingBatteryRead = null;
+        discoveredServices = null;
         BluetoothGatt previous = connection;
         connection = null;
         if (previous != null) {
