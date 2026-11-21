@@ -6,6 +6,12 @@
 
 一般問答可以由 AI 處理。時間、行情、換算、鬧鐘和叫車交由各自的功能執行；有副作用的動作須用執行結果決定播報內容。原 App 的 `DataSyncApi` 對鬧鐘、提醒與語音留言使用帳戶 Token，TaxiGo 也走原服務的帳戶授權和地址管理。新版採手機本機或當前供應商官方入口，無須遠傳會員與專案後端。
 
+## AI 服務授權評估
+
+截至 2026-11-22，OpenAI 已提供 Sign in with ChatGPT 的開源用戶端流程：使用者在官方瀏覽器登入並同意 ChatGPT 方案用量後，App 可用 PKCE 與 `127.0.0.1` 回呼在本機取得 Responses API 授權，不需 API 金鑰、用戶端密鑰或專案伺服器。符合資格的 ChatGPT Plus／Pro 帳戶可使用自己的方案額度。官方範例目前以 Electron 示範；愛狐說應採 Android 原生回呼、在 App 私有儲存保護授權資料，依授權範圍呼叫並串流回答，再用手機 TTS 輸出。每次使用由使用者操作發起，並遵守 OpenAI 的請求限制。這是 ChatGPT 自動語音回答的可行官方路徑，Android 流程仍待實作與測試。
+
+Gemini API 使用 Google AI Studio／Cloud 專案 API 金鑰；Google 官方明確建議正式環境不要把金鑰放在手機 App，應由後端代送。Claude API 使用 Claude Console 的 API 金鑰，官方文件未提供把一般 Claude 帳戶登入授權給第三方手機 App 的流程。由於愛狐說不設專案後端，也不代管供應商金鑰，Gemini 與 Claude 目前維持官方頁面入口；只有供應商提供符合本機用戶端及其條款的官方授權流程後，才加入自動回答。
+
 ## 問資訊
 
 | 功能 | 資料與接法 | 語音回覆與驗收 |
@@ -32,15 +38,15 @@
 
 ## 音樂服務
 
-- KKBOX 維持官方播放入口。公開 Open API 可評估搜尋曲庫，整首播放或語音點歌的權限須向 KKBOX 確認。
-- Spotify 提供官方入口，使用者在 Spotify 播放，並讓 Android 把聲音送到已配對音箱。Spotify 開發者政策禁止第三方語音助理控制 Spotify，因此本專案不以 Web API 或 App Remote 實作 Spotify 語音點歌、播放控制或串流。
+- KKBOX 的「開啟 KKBOX」語音指令會交給官方服務入口，使用者自行登入、選歌並播放，Android 再將系統音訊送往已配對音箱。App 不宣稱已點播歌曲；曲庫搜尋或直接播放權限須先取得 KKBOX 授權。
+- Spotify 的「開啟 Spotify」語音指令會交給官方服務入口，使用者自行登入、選歌並播放，Android 再將系統音訊送往已配對音箱。Spotify 開發者政策不允許第三方語音助理控制 Spotify，因此不以 Web API 或 App Remote 實作語音點歌、播放控制或串流。
 
 ## 提交與驗收順序
 
 1. 本機問答核心。已加入時間、日期、農曆、計算與單位換算，可在測試工具以繁中語音或文字輸入並播放回答。時間、國曆、運算與換算有 JVM 測資，農曆與實際播放待裝置驗收。
 2. 手機動作。鬧鐘與倒數已接 Android 時鐘，支援繁中與二十四小時制，開啟時鐘後由使用者確認。指定日期鬧鐘仍在時鐘介面設定，實機相容性待測。本機提醒已支援相對時間與今天、明天、後天指定時段，使用 Android 通知，支援查看、取消和重啟恢復。通知可能受省電影響而延後。家庭留言已加入錄製、儲存、播放和刪除，音檔留在 App 私有目錄。提醒排程及留言錄播的實機驗收仍待完成。
 3. 台灣資料。串天氣、AQI、台股盤後、匯率與維基百科。回應僅快取於 App 記憶體並按資料類型設定有效時間，不寫入磁碟；來源請求網址以 SHA-256 摘要作為快取鍵，避免保存 API 授權碼。各資料接法驗證欄位改動、無資料、過期、網路失敗與來源時間。
-4. 媒體和外部服務。驗證新聞、LINE GO、Papago 翻譯與 KKBOX、Spotify 官方入口能完成到哪一步。
+4. 媒體和外部服務。App 可用語音明確開啟 KKBOX、Spotify、公視新聞與 LINE GO 官方入口；選歌、實際播放及叫車由使用者在官方服務完成。Papago 由裝置直接呼叫使用者自行設定的 API 憑證。ChatGPT 採官方開源用戶端授權方向，Gemini 與 Claude 暫保留官方頁面入口。尚待集中驗收各服務安裝、登入和音訊轉送情境；不得把開啟服務說成已播放或已叫車。
 5. 音箱端驗收。把確認可用的喚醒、錄音與播放接入上述功能，以兩款音箱逐項測試。成功條件是正常問答無須打開 App 或複製貼上；需外部確認的動作要清楚交接。
 
 ## 來源
@@ -59,3 +65,8 @@
 - [LINE GO 官方服務](https://www.linego.me/about_us)
 - [ML Kit 裝置端翻譯使用規範](https://developers.google.com/ml-kit/language/translation/translation-terms)
 - [Spotify 開發者政策](https://developer.spotify.com/policy)
+- [Sign in with ChatGPT 開源用戶端快速開始](https://developers.openai.com/siwc/quickstart)
+- [Sign in with ChatGPT 本機授權流程](https://developers.openai.com/siwc/token-sharing-open-source/sign-in)
+- [Sign in with ChatGPT Responses API 使用限制](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations)
+- [Gemini API 金鑰與安全建議](https://aistudio.google.com/docs/api-key)
+- [Claude API 驗證方式](https://platform.claude.com/docs/en/manage-claude/authentication)
