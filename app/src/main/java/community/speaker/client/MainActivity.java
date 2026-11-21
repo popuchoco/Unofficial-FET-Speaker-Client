@@ -366,6 +366,11 @@ public final class MainActivity extends AppCompatActivity {
             voiceStatus.setText("請先說出或輸入問題。");
             return;
         }
+        ReminderActionRequest reminderAction = ReminderActionRequest.parse(input);
+        if (reminderAction != null) {
+            confirmReminderCancellation(reminderAction);
+            return;
+        }
         MailboxMessageRequest messageRequest = MailboxMessageRequest.parse(input);
         if (messageRequest != null) {
             showMailbox();
@@ -879,18 +884,42 @@ public final class MainActivity extends AppCompatActivity {
             }
             dialog.setItems(labels, (picker, index) -> {
                 ReminderReceiver.Entry entry = entries.get(index);
-                new MaterialAlertDialogBuilder(this).setTitle("取消提醒？").setMessage(entry.message)
-                        .setNegativeButton("保留", null)
-                        .setPositiveButton("取消提醒", (confirmation, button) -> {
-                            if (!ReminderReceiver.cancel(this, entry)) {
-                                android.widget.Toast.makeText(this, "無法取消提醒，請再試一次。",
-                                        android.widget.Toast.LENGTH_SHORT).show();
-                            }
-                            showReminders();
-                        }).show();
+                confirmCancelReminder(entry, true);
             });
         }
         dialog.show();
+    }
+
+    private void confirmReminderCancellation(ReminderActionRequest request) {
+        java.util.List<ReminderReceiver.Entry> entries = ReminderReceiver.list(this);
+        int index = request.number - 1;
+        if (index < 0 || index >= entries.size()) {
+            String message = entries.isEmpty() ? "目前沒有待處理的提醒。"
+                    : "找不到第" + request.number + "筆提醒。";
+            speakAssistantStatus(message);
+            return;
+        }
+        confirmCancelReminder(entries.get(index), false);
+    }
+
+    private void confirmCancelReminder(ReminderReceiver.Entry entry, boolean returnToList) {
+        java.text.DateFormat format = java.text.DateFormat.getDateTimeInstance(
+                java.text.DateFormat.SHORT, java.text.DateFormat.SHORT);
+        String due = format.format(new java.util.Date(entry.due));
+        new MaterialAlertDialogBuilder(this).setTitle("取消這個提醒？")
+                .setMessage(due + "\n" + entry.message)
+                .setNegativeButton("保留", null)
+                .setPositiveButton("取消提醒", (confirmation, button) -> {
+                    if (!ReminderReceiver.cancel(this, entry)) {
+                        android.widget.Toast.makeText(this, "無法取消提醒，請再試一次。",
+                                android.widget.Toast.LENGTH_SHORT).show();
+                        if (!returnToList) speakAssistantStatus("無法取消提醒，請再試一次。");
+                        return;
+                    }
+                    if (returnToList) showReminders();
+                    else speakAssistantStatus("已取消提醒「" + entry.message + "」。");
+                }).show();
+        if (!returnToList) speakAssistantStatus("請在畫面確認是否取消這筆提醒。");
     }
 
     private void showMailbox() {
