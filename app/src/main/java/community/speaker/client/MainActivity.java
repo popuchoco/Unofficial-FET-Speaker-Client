@@ -467,12 +467,16 @@ public final class MainActivity extends AppCompatActivity {
                     updateChatGptStatus();
                     if (showPicker) {
                         ChatGptProvider.Model[] options = models.toArray(new ChatGptProvider.Model[0]);
+                        CharSequence[] labels = new CharSequence[options.length];
                         int selected = 0;
                         String current = chatGptProvider.selectedModelSlug();
-                        for (int i = 0; i < options.length; i++) if (options[i].slug.equals(current)) selected = i;
+                        for (int i = 0; i < options.length; i++) {
+                            labels[i] = options[i].name;
+                            if (options[i].slug.equals(current)) selected = i;
+                        }
                         new MaterialAlertDialogBuilder(this)
                                 .setTitle("選擇 ChatGPT 模型")
-                                .setSingleChoiceItems(options, selected, (dialog, choice) -> {
+                                .setSingleChoiceItems(labels, selected, (dialog, choice) -> {
                                     try {
                                         chatGptProvider.selectModel(options[choice]);
                                         updateChatGptStatus();
