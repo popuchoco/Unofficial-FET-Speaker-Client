@@ -12,8 +12,8 @@ final class ClockRequest {
                     + "([0-9]{1,2})(?:點鐘?|:)(?:(半)|([0-9]{1,2})(?:分(?:鐘)?)?)?"
                     + "(?:的)?(?:鬧鐘|叫醒我)?");
     private static final Pattern TIMER = Pattern.compile(
-            "(?:設定|設置|開始)?(?:倒數|計時器?)?(?:([0-9]{1,5})(?:個)?小時)?"
-                    + "(?:([0-9]{1,5})分鐘?)?(?:([0-9]{1,5})秒(?:鐘)?)?(?:的)?(?:倒數|計時器?)?");
+            "(?:設定|設置|開始)?(?:倒數|計時器?)?(?:([0-9]{1,5}|半)(?:個)?小時)?"
+                    + "(?:([0-9]{1,5}|半)分鐘?)?(?:([0-9]{1,5})秒(?:鐘)?)?(?:的)?(?:倒數|計時器?)?");
     final Kind kind;
     final int hour;
     final int minute;
@@ -38,7 +38,9 @@ final class ClockRequest {
         if (timer && alarm) return clarify("請分開說要設定的鬧鐘和倒數。");
 
         // A clock separator must stay separate from spoken decimal numbers.
-        String numeric = LocalAnswer.replaceChineseNumbers(timer ? normalized : normalized.replace("點鐘", ":").replace("點", ":"));
+        String timerWords = normalized.replace("三刻鐘", "45分鐘").replace("一刻鐘", "15分鐘");
+        String numeric = LocalAnswer.replaceChineseNumbers(timer
+                ? timerWords : normalized.replace("點鐘", ":").replace("點", ":"));
         return timer ? parseTimer(numeric) : parseAlarm(numeric);
     }
 
@@ -72,13 +74,20 @@ final class ClockRequest {
     private static ClockRequest parseTimer(String speech) {
         Matcher match = TIMER.matcher(speech);
         if (!match.matches()) return clarify("請說明倒數時間，例如倒數三分鐘。");
-        int seconds = number(match.group(1)) * 3600 + number(match.group(2)) * 60 + number(match.group(3));
+        int seconds = duration(match.group(1), 3600) + duration(match.group(2), 60)
+                + duration(match.group(3), 1);
         if (seconds < 1 || seconds > 86400) return clarify("倒數時間需介於一秒到二十四小時。");
         return new ClockRequest(Kind.TIMER, 0, 0, seconds, null);
     }
 
     private static int number(String text) {
         return text == null ? 0 : Integer.parseInt(text);
+    }
+
+    private static int duration(String text, int unitSeconds) {
+        if (text == null) return 0;
+        if ("半".equals(text)) return unitSeconds / 2;
+        return number(text) * unitSeconds;
     }
 
     private static ClockRequest clarify(String prompt) {

@@ -24,6 +24,11 @@ public class ClockRequestTest {
         assertTimer("開始倒數一小時兩分鐘三秒", 3723);
         assertTimer("五分鐘計時", 300);
         assertTimer("倒數二十四小時", 86400);
+        assertTimer("倒數半小時", 1800);
+        assertTimer("設定半個小時倒數", 1800);
+        assertTimer("倒數半分鐘", 30);
+        assertTimer("倒數一刻鐘", 900);
+        assertTimer("三刻鐘計時", 2700);
         assertEquals(ClockRequest.Kind.CLARIFICATION, ClockRequest.parse("倒數二十五小時").kind);
         assertEquals(ClockRequest.Kind.CLARIFICATION, ClockRequest.parse("倒數零秒").kind);
         assertNull(ClockRequest.parse("現在幾點"));
