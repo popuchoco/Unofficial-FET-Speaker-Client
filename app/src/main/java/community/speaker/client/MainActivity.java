@@ -786,8 +786,10 @@ public final class MainActivity extends AppCompatActivity {
             java.text.DateFormat times = java.text.DateFormat.getDateTimeInstance();
             java.util.List<java.io.File> recordings = voiceMessages.list();
             if (recordings.isEmpty()) mailboxStatus.setText("目前沒有留言。");
-            for (java.io.File recording : recordings) {
-                String title = times.format(new java.util.Date(recording.lastModified()));
+            for (int index = 0; index < recordings.size(); index++) {
+                java.io.File recording = recordings.get(index);
+                String title = "留言 " + (index + 1) + " · "
+                        + times.format(new java.util.Date(recording.lastModified()));
                 addButton(mailboxList, title, () -> showMessageActions(recording, title));
             }
         } catch (java.io.IOException error) {

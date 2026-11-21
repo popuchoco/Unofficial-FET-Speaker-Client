@@ -7,6 +7,7 @@ import org.junit.rules.TemporaryFolder;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.List;
 
 import static org.junit.Assert.*;
 
@@ -38,5 +39,31 @@ public class VoiceMessageStoreTest {
         assertFalse(store.delete(foreign));
         assertTrue(foreign.exists());
         assertTrue(store.discard(empty));
+    }
+
+    @Test public void keepsSameTimeMessagesDistinctWhenOneIsDeleted() throws IOException {
+        VoiceMessageStore store = new VoiceMessageStore(folder.getRoot());
+        File first = save(store);
+        File second = save(store);
+        long sameTime = 1_800_000_000_000L;
+        assertTrue(first.setLastModified(sameTime));
+        assertTrue(second.setLastModified(sameTime));
+
+        List<File> recordings = store.list();
+        assertEquals(2, recordings.size());
+        assertNotEquals(recordings.get(0).getName(), recordings.get(1).getName());
+        File selected = recordings.get(0);
+        File remaining = recordings.get(1);
+        assertTrue(store.delete(selected));
+        assertEquals(1, store.list().size());
+        assertEquals(remaining, store.list().get(0));
+    }
+
+    private static File save(VoiceMessageStore store) throws IOException {
+        File draft = store.begin();
+        try (FileOutputStream output = new FileOutputStream(draft)) {
+            output.write(42);
+        }
+        return store.save(draft);
     }
 }
