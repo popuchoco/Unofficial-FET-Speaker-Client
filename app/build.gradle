@@ -1,0 +1,20 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'community.speaker.client'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'community.speaker.client'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '0.1.0'
+    }
+}
+
+dependencies {
+    implementation 'com.google.android.material:material:1.12.0'
+}

@@ -1,0 +1,16 @@
+<resources>
+    <style name="Theme.Speaker" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="borderlessButtonStyle">@style/Widget.Material3.Button.TextButton</item>
+        <item name="colorPrimary">@color/speaker_primary</item>
+        <item name="colorOnPrimary">@color/speaker_on_primary</item>
+        <item name="colorSurface">@color/speaker_surface</item>
+        <item name="colorSurfaceContainerLow">@color/speaker_panel</item>
+        <item name="colorOnSurface">@color/speaker_on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/speaker_on_surface_variant</item>
+        <item name="colorOutline">@color/speaker_outline</item>
+        <item name="android:statusBarColor">@color/speaker_surface</item>
+        <item name="android:navigationBarColor">#111512</item>
+        <item name="android:windowBackground">@color/speaker_surface</item>
+        <item name="android:windowLightStatusBar">@bool/speaker_light_bars</item>
+    </style>
+</resources>

@@ -1,0 +1,10 @@
+<resources>
+    <color name="speaker_primary">#325B46</color>
+    <color name="speaker_on_primary">#FFFFFF</color>
+    <color name="speaker_surface">#F8FAF5</color>
+    <color name="speaker_panel">#EFF3EC</color>
+    <color name="speaker_on_surface">#191D19</color>
+    <color name="speaker_on_surface_variant">#404941</color>
+    <color name="speaker_outline">#68746A</color>
+    <bool name="speaker_light_bars">true</bool>
+</resources>
