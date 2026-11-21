@@ -47,6 +47,8 @@ public final class MainActivity extends AppCompatActivity {
     private static final int MAILBOX_MICROPHONE_PERMISSION = 45;
     private static final String LAST_DEVICE_NAME = "last_device_name";
     private static final String MOENV_KEY = "moenv_api_key";
+    private static final String CWA_KEY = "cwa_api_key";
+    private static final String WEATHER_PLACE = "weather_place";
     private static final String[] APPEARANCES = { "跟隨系統", "淺色", "深色" };
     private static final int[] NIGHT_MODES = {
             AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM,
@@ -138,6 +140,7 @@ public final class MainActivity extends AppCompatActivity {
         addLink("公視新聞影音", ServiceHandoff.PUBLIC_NEWS.url);
         addLink("LINE GO 叫車", ServiceHandoff.TAXI.url);
         addButton(section, "設定空氣品質資料來源", this::configureAirQuality);
+        addButton(section, "設定天氣資料來源", this::configureWeather);
 
         appearanceButton = addButton(content, "外觀 · " + APPEARANCES[appearance], this::chooseAppearance);
         LinearLayout diagnostics = new LinearLayout(this);
@@ -271,6 +274,11 @@ public final class MainActivity extends AppCompatActivity {
             voiceStatus.setText(opened ? service.confirmation : "無法開啟官方服務。");
             return;
         }
+        WeatherLookup.Request weather = WeatherLookup.parse(input);
+        if (weather != null) {
+            lookupWeather(weather);
+            return;
+        }
         String airPlace = AirQualityLookup.place(input);
         if (airPlace != null) {
             String key = getPreferences(MODE_PRIVATE).getString(MOENV_KEY, "");
@@ -306,6 +314,50 @@ public final class MainActivity extends AppCompatActivity {
         }
         voiceStatus.setText(answer);
         if (speechReady) speakText(answer);
+    }
+
+    private void lookupWeather(WeatherLookup.Request request) {
+        android.content.SharedPreferences settings = getPreferences(MODE_PRIVATE);
+        String place = request.place.isEmpty() ? settings.getString(WEATHER_PLACE, "") : request.place;
+        String key = settings.getString(CWA_KEY, "");
+        if (place.length() > 40 || WeatherLookup.dataset(place) == null) {
+            speakAssistantStatus("請說出完整縣市和鄉鎮市區，例如查臺北市信義區明天天氣。");
+        } else if (key.isEmpty()) {
+            speakAssistantStatus("請先在服務設定輸入中央氣象署授權碼。");
+        } else {
+            startLookup("正在查詢氣象署預報…", "無法取得天氣預報，請確認授權碼或稍後再試。",
+                    () -> WeatherLookup.search(place, request.days, key));
+        }
+    }
+
+    private void configureWeather() {
+        android.content.SharedPreferences settings = getPreferences(MODE_PRIVATE);
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(dp(24), 0, dp(24), 0);
+        EditText key = new TextInputEditText(this);
+        key.setHint("中央氣象署授權碼");
+        key.setSingleLine(true);
+        key.setSaveEnabled(false);
+        key.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        key.setText(settings.getString(CWA_KEY, ""));
+        panel.addView(key);
+        EditText place = new TextInputEditText(this);
+        place.setSingleLine(true);
+        place.setHint("預設鄉鎮，例如臺北市信義區");
+        place.setText(settings.getString(WEATHER_PLACE, ""));
+        panel.addView(place);
+        new MaterialAlertDialogBuilder(this).setTitle("天氣資料來源")
+                .setMessage("授權碼保存在此手機，只有主動查詢才會送往氣象署。")
+                .setView(panel)
+                .setNeutralButton("開啟氣象署", (dialog, button) ->
+                        open(new Intent(Intent.ACTION_VIEW, Uri.parse(WeatherLookup.SOURCE))))
+                .setNegativeButton("取消", null)
+                .setPositiveButton("儲存", (dialog, button) -> settings.edit()
+                        .putString(CWA_KEY, key.getText().toString().trim())
+                        .putString(WEATHER_PLACE, place.getText().toString().trim()).apply())
+                .show();
     }
 
     private void configureAirQuality() {
