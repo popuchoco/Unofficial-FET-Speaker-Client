@@ -31,14 +31,18 @@ ChatGPT 回答採使用者明確送出後按需連線，裝置直接連 OpenAI�
 | --- | --- | --- |
 | 標準藍牙音訊 | 以 Android 配對、朗讀與播放 KKBOX，關閉音箱再開機 | 兩款可作媒體輸出，並能在中斷後恢復播放 |
 | BLE 廣播 | 待機、藍牙配對、Wi-Fi 設定模式分別掃描 | 記錄模式、可連線性與廣播服務，不預設兩款相同 |
-| GATT | 對使用者選定的音箱探索服務與特徵，核對讀取、寫入、通知與指示屬性；若有標準 Battery Service，只讀取 Battery Level | 確認可讀取的標準資料後再納入產品功能；不寫入未知特徵 |
+| GATT | 對使用者選定的音箱探索服務與特徵，核對讀取、寫入、通知與指示屬性；有標準 Device Information Service 時，只讀廠牌、型號、韌體、硬體及軟體版本；有標準 Battery Service 時，只讀 Battery Level | 逐款確認服務是否存在及資料是否可讀；不讀序號、不寫入任何特徵，診斷結果只顯示於當次畫面 |
 | 麥克風 | 在 Android 檢查可用錄音輸入並驗證來源 | 確認可取得音箱收音後再提供切換 |
 | 按鍵 | 檢查系統媒體鍵與可用的 GATT 通知 | 以可重複觀察的事件決定支援範圍 |
 
 藍牙 4.1 與舊版 APK 的配對引導都不足以證明存在可用的 BLE GATT 服務。BLE 掃描限 Android 12 以上，並在掃描和連線時請求附近裝置權限。首版核心流程使用系統媒體音訊，在 BLE 結果未明時仍可獨立驗收。
 
+BLE 標準裝置資訊依 Bluetooth SIG 的 Device Information Service 與指派 UUID 辨識；只讀取用於辨認硬體的廠牌、型號與版本字串，不讀具唯一性的序號，也不保存讀值。
+
 ## 參考
 
 - [Android BLE 指南](https://developer.android.com/develop/connectivity/bluetooth/ble/ble-overview)
 - [Android 藍牙權限](https://developer.android.com/develop/connectivity/bluetooth/bt-permissions)
+- [Bluetooth SIG Device Information Service](https://www.bluetooth.com/specifications/specs/device-information-service/)
+- [Bluetooth SIG Assigned Numbers](https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Assigned_Numbers/out/en/index-en.html)
 - [KKBOX Open API 官方 SDK](https://github.com/KKBOX/OpenAPI-JavaScript)
