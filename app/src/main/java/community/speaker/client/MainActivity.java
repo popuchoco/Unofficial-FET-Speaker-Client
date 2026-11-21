@@ -117,6 +117,7 @@ public final class MainActivity extends AppCompatActivity {
     private int utteranceNumber;
     private String activeUtterance;
     private final Set<String> pendingSpeechUtterances = new HashSet<>();
+    private boolean recordMailboxAfterSpeech;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -374,6 +375,13 @@ public final class MainActivity extends AppCompatActivity {
         if (localAction == LocalActionRequest.Action.OPEN_MAILBOX) {
             showMailbox();
             speakAssistantStatus("已開啟家庭留言，選取留言可播放或刪除。");
+            return;
+        }
+        if (localAction == LocalActionRequest.Action.RECORD_MAILBOX) {
+            showMailbox();
+            speakAssistantStatus("即將開始錄音，請在語音提示結束後開始留言，說完請按儲存錄音。");
+            recordMailboxAfterSpeech = activeUtterance != null;
+            if (!recordMailboxAfterSpeech) requestMailboxRecording();
             return;
         }
         TranslationRequest translation = TranslationRequest.parse(input);
@@ -1080,6 +1088,7 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void abortSpeech(String message) {
+        recordMailboxAfterSpeech = false;
         pendingSpeechUtterances.clear();
         activeUtterance = null;
         if (tts != null) tts.stop();
@@ -1096,6 +1105,10 @@ public final class MainActivity extends AppCompatActivity {
                 restoreChineseVoice();
                 abandonSpeechAudioFocus();
                 speechStatus.setText(message);
+                if (recordMailboxAfterSpeech) {
+                    recordMailboxAfterSpeech = false;
+                    requestMailboxRecording();
+                }
             }
         });
     }
@@ -1141,6 +1154,7 @@ public final class MainActivity extends AppCompatActivity {
 
     private void onSpeechAudioFocusChange(int focusChange) {
         if (activeUtterance == null || !AudioFocusPolicy.shouldStopSpeech(focusChange)) return;
+        recordMailboxAfterSpeech = false;
         activeUtterance = null;
         pendingSpeechUtterances.clear();
         if (tts != null) tts.stop();
@@ -1150,6 +1164,7 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void stopSpeech() {
+        recordMailboxAfterSpeech = false;
         pendingSpeechUtterances.clear();
         if (activeUtterance == null) {
             restoreChineseVoice();

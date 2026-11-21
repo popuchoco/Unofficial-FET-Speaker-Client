@@ -12,6 +12,11 @@ public class LocalActionRequestTest {
         assertEquals(LocalActionRequest.Action.OPEN_MAILBOX, LocalActionRequest.parse("播放家庭留言"));
     }
 
+    @Test public void startsRecordingOnlyForExplicitMailboxRecordingRequests() {
+        assertEquals(LocalActionRequest.Action.RECORD_MAILBOX, LocalActionRequest.parse("幫我錄一段家庭留言"));
+        assertEquals(LocalActionRequest.Action.RECORD_MAILBOX, LocalActionRequest.parse("請錄製一則留言"));
+    }
+
     @Test public void opensReminderListWithoutConfusingNewReminders() {
         assertEquals(LocalActionRequest.Action.OPEN_REMINDERS, LocalActionRequest.parse("查看本機提醒"));
         assertEquals(LocalActionRequest.Action.OPEN_REMINDERS, LocalActionRequest.parse("我有哪些提醒事項"));
