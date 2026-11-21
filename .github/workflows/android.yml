@@ -17,7 +17,8 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Install Android SDK
-        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-35 build-tools;35.0.0'
       - name: Build and lint
         run: ./gradlew --no-daemon assembleDebug lintDebug
