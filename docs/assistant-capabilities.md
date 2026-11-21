@@ -15,7 +15,7 @@
 | 台股 | 已用證交所與櫃買中心 OpenAPI 接上市、上櫃盤後行情；倚天股市原授權與即時行情另外驗證 | 支援公司名稱、代號。報最近交易日、收盤價與漲跌，標明「收盤」；即時價格需另有授權來源 |
 | 維基百科 | 已接繁中維基百科 REST 搜尋與條目摘要，依規範送出 User-Agent；僅在明確百科指令時查詢 | 找到多個同名詞條時先補問；音箱播最合適詞條的短摘要，App 顯示來源連結 |
 | 直播新聞 | 已支援公視新聞影音與官方直播頁面交接，其他台別或授權音訊串流另評估 | 「播放公視新聞」啟動官方播放器；若公開介面只有網頁入口，標示為開啟官方頁面，播放中斷則說明 |
-| 匯率換算 | 臺灣銀行公開牌告 CSV 在直接測試中回傳瀏覽器驗證頁。先確認銀行提供的可供 App 使用介面或可替代的資料來源，再按現金／即期和買賣方向換算 | 報金額、匯率類別與牌告時間。遇到「一百美元換成台幣」等問題，依已設定的匯率類別或先補問 |
+| 匯率換算 | 已改接臺灣土地銀行官方 CSV。臺灣銀行下載端點在直接測試中回傳瀏覽器驗證頁 | 提供新臺幣與外幣的參考換算，預設即期，說「現金」可改用現金牌告。播報買賣方向與查詢時間，CSV 未提供牌告時間 |
 | 翻譯 | 先驗證可在手機端合法執行、支援繁中的語言包與多語 TTS。ML Kit 的嵌入式音箱用途有限制，評估具適用授權的離線模型 | 「把你好翻成日文」先辨識原文，回傳譯文，再選目標語言語音；無對應語音時顯示文字 |
 
 ## 生活幫手
@@ -50,7 +50,7 @@
 - [臺灣證交所 OpenAPI](https://openapi.twse.com.tw/) · [櫃買中心 OpenAPI](https://www.tpex.org.tw/openapi/)
 - [MediaWiki REST API 使用規範](https://www.mediawiki.org/wiki/API:REST_API/Policies)
 - [公視官方直播資訊](https://www.pts.org.tw/zh_tw/pr/station/)
-- [臺灣銀行牌告匯率與 CSV](https://rate.bot.com.tw/xrt?lang=zh-TW)
+- [臺灣土地銀行牌告匯率與 CSV](https://rate.landbank.com.tw/zh-TW/Foreign/)
 - [Android AlarmClock](https://developer.android.com/reference/android/provider/AlarmClock)
 - [LINE GO 官方服務](https://www.linego.me/about_us)
 - [ML Kit 裝置端翻譯使用規範](https://developers.google.com/ml-kit/language/translation/translation-terms)

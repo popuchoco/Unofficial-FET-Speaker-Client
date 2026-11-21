@@ -292,6 +292,12 @@ public final class MainActivity extends AppCompatActivity {
             }
             return;
         }
+        ExchangeLookup.Request exchange = ExchangeLookup.parse(input);
+        if (exchange != null) {
+            startLookup("正在查詢牌告匯率…", "無法取得土地銀行牌告匯率，請稍後再試。",
+                    () -> ExchangeLookup.search(exchange));
+            return;
+        }
         String stock = StockLookup.symbol(input);
         if (stock != null) {
             if (stock.isEmpty() || stock.length() > 40) {
