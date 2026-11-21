@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-Hant">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>愛講音箱社群版</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f3efe7; color: #222921; font: 1rem/1.6 system-ui, sans-serif; }
+  main { max-width: 44rem; margin: auto; padding: 3rem 1.25rem; }
+  h1 { margin: 0; font-size: clamp(2rem, 7vw, 3.5rem); line-height: 1.15; }
+  h2 { font-size: 1.2rem; margin: 0 0 .65rem; }
+  p { margin: .6rem 0 1rem; }
+  section { margin-top: 1.25rem; padding: 1.25rem; background: #fffdf8; border: 1px solid #d8d4c8; border-radius: 1rem; }
+  .actions { display: flex; gap: .6rem; flex-wrap: wrap; }
+  a, button { display: inline-block; border: 1px solid #295441; border-radius: .5rem; padding: .55rem .85rem; color: #295441; background: transparent; font: inherit; cursor: pointer; }
+  #speak { background: #295441; color: #fff; }
+  button:disabled { opacity: .45; cursor: default; }
+  textarea { display: block; width: 100%; min-height: 9rem; margin-bottom: .75rem; padding: .75rem; font: inherit; border: 1px solid #837f74; border-radius: .5rem; resize: vertical; }
+  #status:empty { display: none; }
+</style>
+<main>
+  <h1>愛講音箱社群版</h1>
+  <p>小狐狸與小愛講適用。先在系統設定配對音箱，並選為音訊輸出。</p>
+  <section aria-labelledby="services">
+    <h2 id="services">AI 服務</h2>
+    <p>在官方頁面自行登入與對話。</p>
+    <div class="actions">
+      <a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">開啟 ChatGPT</a>
+      <a href="https://gemini.google.com/app" target="_blank" rel="noopener noreferrer">開啟 Gemini</a>
+      <a href="https://claude.ai/" target="_blank" rel="noopener noreferrer">開啟 Claude</a>
+    </div>
+  </section>
+  <section>
+    <h2><label for="reply">朗讀回覆</label></h2>
+    <textarea id="reply" autocomplete="off" placeholder="貼上要朗讀的文字"></textarea>
+    <div class="actions">
+      <button id="speak" type="button" disabled>朗讀</button>
+      <button id="stop" type="button" disabled>停止</button>
+    </div>
+    <p id="status" role="status"></p>
+  </section>
+  <section>
+    <h2>音樂</h2>
+    <a href="https://www.kkbox.com/tw/" target="_blank" rel="noopener noreferrer">開啟 KKBOX</a>
+  </section>
+</main>
+<script src="speech.js" defer></script>
+</html>
