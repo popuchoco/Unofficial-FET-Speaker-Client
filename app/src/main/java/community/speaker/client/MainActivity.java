@@ -365,6 +365,17 @@ public final class MainActivity extends AppCompatActivity {
             voiceStatus.setText("請先說出或輸入問題。");
             return;
         }
+        LocalActionRequest.Action localAction = LocalActionRequest.parse(input);
+        if (localAction == LocalActionRequest.Action.OPEN_REMINDERS) {
+            showReminders();
+            speakAssistantStatus("已開啟本機提醒，點選一筆可查看或取消。");
+            return;
+        }
+        if (localAction == LocalActionRequest.Action.OPEN_MAILBOX) {
+            showMailbox();
+            speakAssistantStatus("已開啟家庭留言，選取留言可播放或刪除。");
+            return;
+        }
         TranslationRequest translation = TranslationRequest.parse(input);
         if (translation != null) {
             if (translation.error != null) {
