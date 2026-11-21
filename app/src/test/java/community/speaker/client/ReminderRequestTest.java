@@ -1,6 +1,8 @@
 package community.speaker.client;
 
 import org.junit.Test;
+import java.util.Calendar;
+import java.util.TimeZone;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
@@ -21,5 +23,21 @@ public class ReminderRequestTest {
         assertEquals(0, ReminderRequest.parse("二十五小時後提醒我拿包裹").seconds);
         assertEquals(0, ReminderRequest.parse("三分鐘後提醒我。").seconds);
         assertNull(ReminderRequest.parse("倒數三分鐘"));
+    }
+
+    @Test public void schedulesTomorrowAtTheSpokenLocalTime() {
+        TimeZone zone = TimeZone.getTimeZone("Asia/Taipei");
+        Calendar now = Calendar.getInstance(zone);
+        now.clear();
+        now.set(2026, Calendar.NOVEMBER, 22, 10, 0);
+
+        ReminderRequest request = ReminderRequest.parse("明天早上九點半提醒我拿包裹", now.getTimeInMillis(), zone);
+        Calendar expected = (Calendar) now.clone();
+        expected.add(Calendar.DAY_OF_YEAR, 1);
+        expected.set(Calendar.HOUR_OF_DAY, 9);
+        expected.set(Calendar.MINUTE, 30);
+
+        assertEquals(expected.getTimeInMillis(), request.dueAtMillis);
+        assertEquals("拿包裹", request.message);
     }
 }

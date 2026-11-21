@@ -45,8 +45,9 @@ public final class ReminderReceiver extends BroadcastReceiver {
     }
 
     static Entry add(Context context, ReminderRequest request) {
-        Entry entry = new Entry(UUID.randomUUID().toString(),
-                System.currentTimeMillis() + request.seconds * 1000L, request.message);
+        long due = request.dueAtMillis > 0 ? request.dueAtMillis
+                : System.currentTimeMillis() + request.seconds * 1000L;
+        Entry entry = new Entry(UUID.randomUUID().toString(), due, request.message);
         if (!store(context).edit().putString(entry.id, entry.due + "\n" + entry.message).commit()) return null;
         schedule(context, entry);
         return entry;

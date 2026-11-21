@@ -442,8 +442,8 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void requestReminder(ReminderRequest request) {
-        if (request.seconds == 0) {
-            speakAssistantStatus("請說明多久後要提醒什麼，例如三分鐘後提醒我關火。");
+        if (request.seconds == 0 && request.dueAtMillis == 0) {
+            speakAssistantStatus("請說明提醒時間和事項，例如三分鐘後提醒我關火，或明天早上九點提醒我拿包裹。");
             return;
         }
         if (Build.VERSION.SDK_INT >= 33 &&
