@@ -134,6 +134,8 @@ public final class MainActivity extends AppCompatActivity {
         addLink("開啟 Claude", "https://claude.ai/");
         addLink("開啟 KKBOX", "https://www.kkbox.com/tw/");
         addLink("開啟 Spotify", "https://open.spotify.com/");
+        addLink("公視新聞影音", ServiceHandoff.PUBLIC_NEWS.url);
+        addLink("LINE GO 叫車", ServiceHandoff.TAXI.url);
 
         appearanceButton = addButton(content, "外觀 · " + APPEARANCES[appearance], this::chooseAppearance);
         LinearLayout diagnostics = new LinearLayout(this);
@@ -259,6 +261,12 @@ public final class MainActivity extends AppCompatActivity {
         ReminderRequest reminder = ReminderRequest.parse(input);
         if (reminder != null) {
             requestReminder(reminder);
+            return;
+        }
+        ServiceHandoff service = ServiceHandoff.parse(input);
+        if (service != null) {
+            boolean opened = open(new Intent(Intent.ACTION_VIEW, Uri.parse(service.url)));
+            voiceStatus.setText(opened ? service.confirmation : "無法開啟官方服務。");
             return;
         }
         String stock = StockLookup.symbol(input);
@@ -663,11 +671,13 @@ public final class MainActivity extends AppCompatActivity {
                 androidx.appcompat.R.attr.borderlessButtonStyle);
     }
 
-    private void open(Intent intent) {
+    private boolean open(Intent intent) {
         try {
             startActivity(intent);
+            return true;
         } catch (ActivityNotFoundException error) {
             android.widget.Toast.makeText(this, "找不到可開啟此頁面的應用程式。", android.widget.Toast.LENGTH_SHORT).show();
+            return false;
         }
     }
 
