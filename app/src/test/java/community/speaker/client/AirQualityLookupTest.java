@@ -37,6 +37,20 @@ public class AirQualityLookupTest {
         assertTrue(AirQualityLookup.answer(DATA, "花蓮", taipei(21, 23)).text.contains("找不到"));
     }
 
+    @Test public void comparesIsoTimestampsByTheirTimezoneOffset() throws JSONException {
+        String data = "{\"records\":["
+                + "{\"sitename\":\"松山\",\"county\":\"臺北市\",\"aqi\":\"40\","
+                + "\"publishtime\":\"2026-11-21T22:00:00+08:00\"},"
+                + "{\"sitename\":\"松山\",\"county\":\"臺北市\",\"aqi\":\"46\","
+                + "\"publishtime\":\"2026-11-21T14:30:00Z\"},"
+                + "{\"sitename\":\"松山\",\"county\":\"臺北市\",\"aqi\":\"44\","
+                + "\"publishtime\":\"2026-11-21T22:15:30\"}]}";
+
+        LookupAnswer answer = AirQualityLookup.answer(data, "松山", taipei(21, 23));
+
+        assertTrue(answer.text.contains("指標 46"));
+    }
+
     private static long taipei(int day, int hour) {
         Calendar time = Calendar.getInstance(TimeZone.getTimeZone("Asia/Taipei"));
         time.clear();

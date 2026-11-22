@@ -25,6 +25,13 @@ final class AirQualityLookup {
     private static final Pattern PREFIX = Pattern.compile("^(?:查詢|查一下|查)?(?:空氣品質|AQI)[:：]?(.*)$");
     private static final Pattern SUFFIX = Pattern.compile("^(.*?)(?:的)?(?:空氣品質|AQI)(?:怎麼樣|如何|是多少|多少)?$");
     private static final long RECENT_MILLIS = 3 * 60 * 60 * 1000L;
+    private static final String[] PUBLISHED_TIME_FORMATS = {
+            "yyyy/MM/dd HH:mm", "yyyy/MM/dd HH:mm:ss",
+            "yyyy-MM-dd HH:mm", "yyyy-MM-dd HH:mm:ss",
+            "yyyy-MM-dd'T'HH:mm", "yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd'T'HH:mm:ss.SSS",
+            "yyyy-MM-dd'T'HH:mmXXX", "yyyy-MM-dd'T'HH:mm:ssXXX",
+            "yyyy-MM-dd'T'HH:mm:ss.SSSXXX"
+    };
 
     private AirQualityLookup() {}
 
@@ -105,14 +112,15 @@ final class AirQualityLookup {
     }
 
     private static long publishedAt(String value) {
-        SimpleDateFormat format = new SimpleDateFormat("yyyy/MM/dd HH:mm", Locale.TAIWAN);
-        format.setTimeZone(TimeZone.getTimeZone("Asia/Taipei"));
-        format.setLenient(false);
-        String normalized = value.replace('-', '/').replace('T', ' ');
-        if (normalized.length() == 19 && normalized.endsWith(":00")) normalized = normalized.substring(0, 16);
-        ParsePosition position = new ParsePosition(0);
-        Date date = format.parse(normalized, position);
-        return date == null || position.getIndex() != normalized.length() ? -1 : date.getTime();
+        for (String pattern : PUBLISHED_TIME_FORMATS) {
+            SimpleDateFormat format = new SimpleDateFormat(pattern, Locale.TAIWAN);
+            format.setTimeZone(TimeZone.getTimeZone("Asia/Taipei"));
+            format.setLenient(false);
+            ParsePosition position = new ParsePosition(0);
+            Date date = format.parse(value, position);
+            if (date != null && position.getIndex() == value.length()) return date.getTime();
+        }
+        return -1;
     }
 
     private static String normalize(String text) {
