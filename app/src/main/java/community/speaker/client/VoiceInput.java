@@ -46,6 +46,12 @@ final class VoiceInput {
                 @Override public void onEndOfSpeech() {
                     if (session == recognizer) status.accept("正在辨識…");
                 }
+                @Override public void onPartialResults(Bundle results) {
+                    if (session != recognizer) return;
+                    String partial = RecognitionText.firstUsable(
+                            results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION));
+                    if (partial != null) status.accept("語音辨識：「" + partial + "」");
+                }
                 @Override public void onError(int error) {
                     if (session != recognizer) return;
                     release();
@@ -66,13 +72,13 @@ final class VoiceInput {
                     if (session != recognizer) return;
                     release();
                     ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-                    if (matches == null || matches.isEmpty() || matches.get(0).trim().isEmpty()) {
+                    String recognized = RecognitionText.firstUsable(matches);
+                    if (recognized == null) {
                         status.accept("沒有辨識到語音。請再試一次。");
                         return;
                     }
-                    transcript.accept(matches.get(0));
+                    transcript.accept(recognized);
                 }
-                @Override public void onPartialResults(Bundle results) { }
                 @Override public void onEvent(int type, Bundle params) { }
             });
             Intent options = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
