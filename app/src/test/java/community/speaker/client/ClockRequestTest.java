@@ -1,6 +1,9 @@
 package community.speaker.client;
 
 import org.junit.Test;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Calendar;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
@@ -14,6 +17,7 @@ public class ClockRequestTest {
         assertAlarm("午夜零點鬧鐘", 0, 0);
         assertAlarm("凌晨零點半鬧鐘", 0, 30);
         assertAlarm("設定鬧鐘18:05", 18, 5);
+        assertAlarm("設定鬧鐘08:10", 8, 10);
     }
 
     @Test public void asksAboutUnclearOrUnsupportedAlarms() {
@@ -21,6 +25,24 @@ public class ClockRequestTest {
         assertEquals(ClockRequest.Kind.CLARIFICATION, ClockRequest.parse("晚上十二點鬧鐘").kind);
         assertEquals(ClockRequest.Kind.CLARIFICATION, ClockRequest.parse("設定明天早上七點鬧鐘").kind);
         assertEquals(ClockRequest.Kind.CLARIFICATION, ClockRequest.parse("設定鬧鐘25:00").kind);
+    }
+
+    @Test public void recognizesRepeatingDailyWeekdayWeekendAndWeeklyAlarms() {
+        assertAlarmDays("每天早上七點鬧鐘", Calendar.SUNDAY, Calendar.MONDAY, Calendar.TUESDAY,
+                Calendar.WEDNESDAY, Calendar.THURSDAY, Calendar.FRIDAY, Calendar.SATURDAY);
+        assertAlarmDays("設個平日早上七點半的鬧鐘", Calendar.MONDAY, Calendar.TUESDAY,
+                Calendar.WEDNESDAY, Calendar.THURSDAY, Calendar.FRIDAY);
+        assertAlarmDays("週末早上九點鬧鐘", Calendar.SATURDAY, Calendar.SUNDAY);
+        assertAlarmDays("每週星期一晚上九點鬧鐘", Calendar.MONDAY);
+        assertAlarmDays("每週一到週五早上七點鬧鐘", Calendar.MONDAY, Calendar.TUESDAY,
+                Calendar.WEDNESDAY, Calendar.THURSDAY, Calendar.FRIDAY);
+        assertAlarmDays("每日08:10叫醒我", Calendar.SUNDAY, Calendar.MONDAY, Calendar.TUESDAY,
+                Calendar.WEDNESDAY, Calendar.THURSDAY, Calendar.FRIDAY, Calendar.SATURDAY);
+    }
+
+    @Test public void keepsSpecificDateAlarmsSeparateFromRepeatingSchedules() {
+        assertEquals(ClockRequest.Kind.CLARIFICATION,
+                ClockRequest.parse("明天每天早上七點鬧鐘").kind);
     }
 
     @Test public void recognizesCompoundTimersWithinAndroidRange() {
@@ -39,7 +61,7 @@ public class ClockRequestTest {
 
     private static void assertAlarm(String input, int hour, int minute) {
         ClockRequest request = ClockRequest.parse(input);
-        assertEquals(ClockRequest.Kind.ALARM, request.kind);
+        assertEquals(input, ClockRequest.Kind.ALARM, request.kind);
         assertEquals(hour, request.hour);
         assertEquals(minute, request.minute);
     }
@@ -48,5 +70,11 @@ public class ClockRequestTest {
         ClockRequest request = ClockRequest.parse(input);
         assertEquals(ClockRequest.Kind.TIMER, request.kind);
         assertEquals(seconds, request.seconds);
+    }
+
+    private static void assertAlarmDays(String input, Integer... expectedDays) {
+        ClockRequest request = ClockRequest.parse(input);
+        assertEquals(input, ClockRequest.Kind.ALARM, request.kind);
+        assertEquals(new ArrayList<>(Arrays.asList(expectedDays)), request.repeatDays);
     }
 }

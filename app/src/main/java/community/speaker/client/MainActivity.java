@@ -1086,6 +1086,10 @@ public final class MainActivity extends AppCompatActivity {
             intent = new Intent(AlarmClock.ACTION_SET_ALARM)
                     .putExtra(AlarmClock.EXTRA_HOUR, request.hour)
                     .putExtra(AlarmClock.EXTRA_MINUTES, request.minute);
+            if (!request.repeatDays.isEmpty()) {
+                intent.putIntegerArrayListExtra(AlarmClock.EXTRA_DAYS,
+                        new ArrayList<>(request.repeatDays));
+            }
         } else {
             intent = new Intent(AlarmClock.ACTION_SET_TIMER)
                     .putExtra(AlarmClock.EXTRA_LENGTH, request.seconds);
