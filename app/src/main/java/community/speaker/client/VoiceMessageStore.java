@@ -7,6 +7,7 @@ import java.util.Comparator;
 import java.util.List;
 
 final class VoiceMessageStore {
+    static final long ABANDONED_DRAFT_TTL_MILLIS = 24 * 60 * 60 * 1000L;
     private static final String PREFIX = "message-";
     private static final String DRAFT = ".pending";
     private static final String RECORDING = ".m4a";
@@ -43,10 +44,21 @@ final class VoiceMessageStore {
 
     List<File> list() throws IOException {
         if (!directory.exists()) return java.util.Collections.emptyList();
+        removeExpiredDrafts(System.currentTimeMillis());
         File[] saved = directory.listFiles(file -> file.isFile() && isMessageFile(file, RECORDING));
         if (saved == null) throw new IOException("Cannot list voice messages");
         Arrays.sort(saved, Comparator.comparingLong(File::lastModified).reversed().thenComparing(File::getName));
         return Arrays.asList(saved);
+    }
+
+    private void removeExpiredDrafts(long nowMillis) throws IOException {
+        File[] drafts = directory.listFiles(file -> file.isFile() && isMessageFile(file, DRAFT)
+                && nowMillis >= file.lastModified()
+                && nowMillis - file.lastModified() >= ABANDONED_DRAFT_TTL_MILLIS);
+        if (drafts == null) throw new IOException("Cannot clean voice message drafts");
+        for (File draft : drafts) {
+            if (!draft.delete() && draft.exists()) throw new IOException("Cannot remove abandoned voice message draft");
+        }
     }
 
     private boolean isMessageFile(File file, String extension) {

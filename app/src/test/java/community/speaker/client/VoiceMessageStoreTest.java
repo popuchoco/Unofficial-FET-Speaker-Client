@@ -59,6 +59,20 @@ public class VoiceMessageStoreTest {
         assertEquals(remaining, store.list().get(0));
     }
 
+    @Test public void removesOnlyAbandonedDraftsOlderThanTwentyFourHours() throws IOException {
+        VoiceMessageStore store = new VoiceMessageStore(folder.getRoot());
+        File oldDraft = store.begin();
+        File recentDraft = store.begin();
+        long now = System.currentTimeMillis();
+        assertTrue(oldDraft.setLastModified(now - VoiceMessageStore.ABANDONED_DRAFT_TTL_MILLIS - 1));
+        assertTrue(recentDraft.setLastModified(now - 60 * 60 * 1000L));
+
+        assertTrue(store.list().isEmpty());
+
+        assertFalse(oldDraft.exists());
+        assertTrue(recentDraft.exists());
+    }
+
     private static File save(VoiceMessageStore store) throws IOException {
         File draft = store.begin();
         try (FileOutputStream output = new FileOutputStream(draft)) {

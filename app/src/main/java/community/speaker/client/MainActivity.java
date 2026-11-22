@@ -955,6 +955,12 @@ public final class MainActivity extends AppCompatActivity {
         mailboxStatus = new MaterialTextView(this);
         mailboxStatus.setAccessibilityLiveRegion(TextView.ACCESSIBILITY_LIVE_REGION_POLITE);
         panel.addView(mailboxStatus);
+        MaterialTextView retentionNote = new MaterialTextView(this);
+        retentionNote.setText("開啟留言時會清除超過 24 小時的未完成錄音草稿；已儲存留言會保留到你刪除。");
+        retentionNote.setTextSize(14);
+        retentionNote.setTextColor(MaterialColors.getColor(panel,
+                com.google.android.material.R.attr.colorOnSurfaceVariant));
+        panel.addView(retentionNote);
         addButton(panel, "錄製留言", this::requestMailboxRecording);
         addButton(panel, "儲存錄音", this::saveMailboxRecording);
         addButton(panel, "取消錄音", () -> {
