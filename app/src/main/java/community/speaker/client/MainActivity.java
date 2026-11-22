@@ -366,6 +366,10 @@ public final class MainActivity extends AppCompatActivity {
             voiceStatus.setText("請先說出或輸入問題。");
             return;
         }
+        if (AlarmManagementRequest.shouldShowAlarms(input)) {
+            showAndroidAlarms();
+            return;
+        }
         ReminderActionRequest reminderAction = ReminderActionRequest.parse(input);
         if (reminderAction != null) {
             confirmReminderCancellation(reminderAction);
@@ -1092,6 +1096,15 @@ public final class MainActivity extends AppCompatActivity {
             voiceStatus.setText("已開啟 Android 時鐘，請確認設定。");
         } catch (ActivityNotFoundException | SecurityException error) {
             voiceStatus.setText("這台裝置沒有可處理此指令的 Android 時鐘。");
+        }
+    }
+
+    private void showAndroidAlarms() {
+        try {
+            startActivity(new Intent(AlarmClock.ACTION_SHOW_ALARMS));
+            speakAssistantStatus("已開啟手機鬧鐘，請在時鐘裡查看或取消。");
+        } catch (ActivityNotFoundException | SecurityException error) {
+            speakAssistantStatus("這台裝置沒有可開啟的鬧鐘管理畫面。");
         }
     }
 
