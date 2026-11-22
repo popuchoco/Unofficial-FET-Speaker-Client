@@ -858,13 +858,14 @@ public final class MainActivity extends AppCompatActivity {
             speakAssistantStatus("請先在 Android 設定開啟愛狐說的通知。");
             return;
         }
-        ReminderReceiver.Entry entry = ReminderReceiver.add(this, request);
+        ReminderEntry entry = ReminderReceiver.add(this, request);
         if (entry == null) {
             speakAssistantStatus("未能儲存提醒，請再試一次。");
             return;
         }
         String time = android.text.format.DateFormat.getTimeFormat(this).format(new java.util.Date(entry.due));
-        speakAssistantStatus("已安排 " + time + " 提醒你" + entry.message + "。通知可能因省電設定延後。");
+        String repeat = entry.isRepeating() ? ReminderSchedule.describe(entry.repeatDays) + " " : "";
+        speakAssistantStatus("已安排 " + repeat + time + " 提醒你" + entry.message + "。通知可能因省電設定延後。");
     }
 
     private void speakAssistantStatus(String message) {
@@ -873,7 +874,7 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void showReminders() {
-        java.util.List<ReminderReceiver.Entry> entries = ReminderReceiver.list(this);
+        java.util.List<ReminderEntry> entries = ReminderReceiver.list(this);
         MaterialAlertDialogBuilder dialog = new MaterialAlertDialogBuilder(this)
                 .setTitle("本機提醒").setNegativeButton("關閉", null);
         if (entries.isEmpty()) {
@@ -883,11 +884,13 @@ public final class MainActivity extends AppCompatActivity {
                     java.text.DateFormat.SHORT, java.text.DateFormat.SHORT);
             String[] labels = new String[entries.size()];
             for (int index = 0; index < entries.size(); index++) {
-                ReminderReceiver.Entry entry = entries.get(index);
-                labels[index] = format.format(new java.util.Date(entry.due)) + "\n" + entry.message;
+                ReminderEntry entry = entries.get(index);
+                String repeat = entry.isRepeating()
+                        ? "（" + ReminderSchedule.describe(entry.repeatDays) + "）" : "";
+                labels[index] = format.format(new java.util.Date(entry.due)) + repeat + "\n" + entry.message;
             }
             dialog.setItems(labels, (picker, index) -> {
-                ReminderReceiver.Entry entry = entries.get(index);
+                ReminderEntry entry = entries.get(index);
                 confirmCancelReminder(entry, true);
             });
         }
@@ -895,10 +898,10 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void confirmReminderCancellation(ReminderActionRequest request) {
-        java.util.List<ReminderReceiver.Entry> entries = ReminderReceiver.list(this);
+        java.util.List<ReminderEntry> entries = ReminderReceiver.list(this);
         if (request.task != null) {
-            java.util.List<ReminderReceiver.Entry> matching = new java.util.ArrayList<>();
-            for (ReminderReceiver.Entry entry : entries) {
+            java.util.List<ReminderEntry> matching = new java.util.ArrayList<>();
+            for (ReminderEntry entry : entries) {
                 if (request.matchesMessage(entry.message)) matching.add(entry);
             }
             if (matching.size() == 1) {
@@ -920,10 +923,12 @@ public final class MainActivity extends AppCompatActivity {
         confirmCancelReminder(entries.get(index), false);
     }
 
-    private void confirmCancelReminder(ReminderReceiver.Entry entry, boolean returnToList) {
+    private void confirmCancelReminder(ReminderEntry entry, boolean returnToList) {
         java.text.DateFormat format = java.text.DateFormat.getDateTimeInstance(
                 java.text.DateFormat.SHORT, java.text.DateFormat.SHORT);
-        String due = format.format(new java.util.Date(entry.due));
+        String repeat = entry.isRepeating()
+                ? "（" + ReminderSchedule.describe(entry.repeatDays) + "）" : "";
+        String due = format.format(new java.util.Date(entry.due)) + repeat;
         new MaterialAlertDialogBuilder(this).setTitle("取消這個提醒？")
                 .setMessage(due + "\n" + entry.message)
                 .setNegativeButton("保留", null)

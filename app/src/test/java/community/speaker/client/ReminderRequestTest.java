@@ -1,10 +1,12 @@
 package community.speaker.client;
 
 import org.junit.Test;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.TimeZone;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 public class ReminderRequestTest {
     @Test public void parsesDurationAndPreservesMessage() {
@@ -47,6 +49,8 @@ public class ReminderRequestTest {
 
         assertEquals(expected.getTimeInMillis(), request.dueAtMillis);
         assertEquals("拿包裹", request.message);
+        assertEquals(9, request.scheduleHour);
+        assertTrue(request.repeatDays.isEmpty());
     }
 
     @Test public void schedulesUpcomingAndNextWeekWeekdays() {
@@ -69,6 +73,13 @@ public class ReminderRequestTest {
         expectedNextWeek.add(Calendar.DAY_OF_YEAR, 7);
         assertEquals(expectedNextWeek.getTimeInMillis(), nextWeek.dueAtMillis);
         assertEquals("繳費", nextWeek.message);
+
+        ReminderRequest nextSunday = ReminderRequest.parse("下週星期日早上九點提醒我休息",
+                now.getTimeInMillis(), zone);
+        Calendar expectedSunday = (Calendar) now.clone();
+        expectedSunday.add(Calendar.DAY_OF_YEAR, 12);
+        expectedSunday.set(Calendar.HOUR_OF_DAY, 9);
+        assertEquals(expectedSunday.getTimeInMillis(), nextSunday.dueAtMillis);
     }
 
     @Test public void rollsPastWeekdayTimesToTheFollowingWeek() {
@@ -84,5 +95,50 @@ public class ReminderRequestTest {
         expected.set(Calendar.HOUR_OF_DAY, 9);
         expected.set(Calendar.MINUTE, 0);
         assertEquals(expected.getTimeInMillis(), request.dueAtMillis);
+    }
+
+    @Test public void schedulesDailyAndWeeklyRepeatingReminders() {
+        TimeZone zone = TimeZone.getTimeZone("Asia/Taipei");
+        Calendar now = Calendar.getInstance(zone);
+        now.clear();
+        now.set(2026, Calendar.NOVEMBER, 22, 10, 0);
+
+        ReminderRequest daily = ReminderRequest.parse("每天早上十一點提醒我關火",
+                now.getTimeInMillis(), zone);
+        assertEquals(Arrays.asList(Calendar.SUNDAY, Calendar.MONDAY, Calendar.TUESDAY,
+                Calendar.WEDNESDAY, Calendar.THURSDAY, Calendar.FRIDAY, Calendar.SATURDAY),
+                daily.repeatDays);
+        Calendar expectedDaily = (Calendar) now.clone();
+        expectedDaily.set(Calendar.HOUR_OF_DAY, 11);
+        expectedDaily.set(Calendar.MINUTE, 0);
+        assertEquals(expectedDaily.getTimeInMillis(), daily.dueAtMillis);
+        assertEquals(11, daily.scheduleHour);
+        assertEquals("關火", daily.message);
+
+        ReminderRequest weekdays = ReminderRequest.parse("平日早上九點提醒我開會",
+                now.getTimeInMillis(), zone);
+        assertEquals(Arrays.asList(Calendar.MONDAY, Calendar.TUESDAY, Calendar.WEDNESDAY,
+                Calendar.THURSDAY, Calendar.FRIDAY), weekdays.repeatDays);
+        Calendar expectedWeekday = (Calendar) now.clone();
+        expectedWeekday.add(Calendar.DAY_OF_YEAR, 1);
+        expectedWeekday.set(Calendar.HOUR_OF_DAY, 9);
+        assertEquals(expectedWeekday.getTimeInMillis(), weekdays.dueAtMillis);
+
+        ReminderRequest weekly = ReminderRequest.parse("每週星期一晚上九點提醒我繳費",
+                now.getTimeInMillis(), zone);
+        assertEquals(Arrays.asList(Calendar.MONDAY), weekly.repeatDays);
+        assertEquals("每週星期一", ReminderSchedule.describe(weekly.repeatDays));
+
+        ReminderRequest range = ReminderRequest.parse("每週一到週五早上七點提醒我打卡",
+                now.getTimeInMillis(), zone);
+        assertEquals(Arrays.asList(Calendar.MONDAY, Calendar.TUESDAY, Calendar.WEDNESDAY,
+                Calendar.THURSDAY, Calendar.FRIDAY), range.repeatDays);
+    }
+
+    @Test public void requiresAnUnambiguousTimeForRepeatingReminders() {
+        TimeZone zone = TimeZone.getTimeZone("Asia/Taipei");
+        long now = 1795312800000L;
+        assertEquals(0, ReminderRequest.parse("每天九點提醒我關火", now, zone).dueAtMillis);
+        assertEquals(0, ReminderRequest.parse("明天每天早上九點提醒我關火", now, zone).dueAtMillis);
     }
 }

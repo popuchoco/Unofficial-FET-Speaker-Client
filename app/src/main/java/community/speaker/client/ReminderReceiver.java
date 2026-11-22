@@ -15,23 +15,12 @@ import android.os.Build;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.TimeZone;
 import java.util.UUID;
 
 public final class ReminderReceiver extends BroadcastReceiver {
     private static final String CHANNEL = "local_reminders";
     private static final String FIRE = "community.speaker.client.DELIVER_REMINDER";
-
-    static final class Entry {
-        final String id;
-        final long due;
-        final String message;
-
-        Entry(String id, long due, String message) {
-            this.id = id;
-            this.due = due;
-            this.message = message;
-        }
-    }
 
     static boolean notificationsAvailable(Context context) {
         NotificationManager manager = context.getSystemService(NotificationManager.class);
@@ -44,30 +33,28 @@ public final class ReminderReceiver extends BroadcastReceiver {
         return true;
     }
 
-    static Entry add(Context context, ReminderRequest request) {
+    static ReminderEntry add(Context context, ReminderRequest request) {
         long due = request.dueAtMillis > 0 ? request.dueAtMillis
                 : System.currentTimeMillis() + request.seconds * 1000L;
-        Entry entry = new Entry(UUID.randomUUID().toString(), due, request.message);
-        if (!store(context).edit().putString(entry.id, entry.due + "\n" + entry.message).commit()) return null;
+        ReminderEntry entry = new ReminderEntry(UUID.randomUUID().toString(), due, request.message, request.repeatDays,
+                request.scheduleHour, request.scheduleMinute);
+        if (!store(context).edit().putString(entry.id, entry.encode()).commit()) return null;
         schedule(context, entry);
         return entry;
     }
 
-    static boolean cancel(Context context, Entry entry) {
+    static boolean cancel(Context context, ReminderEntry entry) {
         if (!store(context).edit().remove(entry.id).commit()) return false;
-        PendingIntent alarm = pending(context, entry.id, PendingIntent.FLAG_NO_CREATE);
-        if (alarm != null) {
-            context.getSystemService(AlarmManager.class).cancel(alarm);
-            alarm.cancel();
-        }
+        cancelAlarm(context, entry.id);
+        context.getSystemService(NotificationManager.class).cancel(entry.id, 0);
         return true;
     }
 
-    static List<Entry> list(Context context) {
-        List<Entry> entries = new ArrayList<>();
+    static List<ReminderEntry> list(Context context) {
+        List<ReminderEntry> entries = new ArrayList<>();
         SharedPreferences preferences = store(context);
         for (String id : preferences.getAll().keySet()) {
-            Entry entry = decode(id, preferences.getString(id, null));
+            ReminderEntry entry = ReminderEntry.decode(id, preferences.getString(id, null));
             if (entry != null) entries.add(entry);
         }
         entries.sort(Comparator.comparingLong(entry -> entry.due));
@@ -75,10 +62,10 @@ public final class ReminderReceiver extends BroadcastReceiver {
     }
 
     static void restore(Context context) {
-        for (Entry entry : list(context)) {
+        for (ReminderEntry entry : list(context)) {
             if (entry.due <= System.currentTimeMillis()) {
                 deliver(context, entry);
-            } else if (pending(context, entry.id, PendingIntent.FLAG_NO_CREATE) == null) {
+            } else {
                 schedule(context, entry);
             }
         }
@@ -87,16 +74,34 @@ public final class ReminderReceiver extends BroadcastReceiver {
     @Override public void onReceive(Context context, Intent intent) {
         if (Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) {
             restore(context);
+        } else if (Intent.ACTION_TIME_CHANGED.equals(intent.getAction())
+                || Intent.ACTION_TIMEZONE_CHANGED.equals(intent.getAction())
+                || Intent.ACTION_DATE_CHANGED.equals(intent.getAction())) {
+            rescheduleRepeating(context);
+            restore(context);
         } else if (FIRE.equals(intent.getAction()) && intent.getData() != null) {
             String id = intent.getData().getLastPathSegment();
-            Entry entry = decode(id, store(context).getString(id, null));
+            ReminderEntry entry = ReminderEntry.decode(id, store(context).getString(id, null));
             if (entry != null && entry.due <= System.currentTimeMillis()) deliver(context, entry);
         }
     }
 
-    private static void schedule(Context context, Entry entry) {
+    private static void schedule(Context context, ReminderEntry entry) {
         context.getSystemService(AlarmManager.class).setAndAllowWhileIdle(
                 AlarmManager.RTC_WAKEUP, entry.due, pending(context, entry.id, 0));
+    }
+
+    private static void rescheduleRepeating(Context context) {
+        long now = System.currentTimeMillis();
+        for (ReminderEntry entry : list(context)) {
+            if (!entry.isRepeating()) continue;
+            long due = ReminderSchedule.nextDue(now, entry.repeatDays,
+                    entry.scheduleHour, entry.scheduleMinute, TimeZone.getDefault());
+            ReminderEntry updated = new ReminderEntry(entry.id, due, entry.message, entry.repeatDays,
+                    entry.scheduleHour, entry.scheduleMinute);
+            store(context).edit().putString(entry.id, updated.encode()).commit();
+            schedule(context, updated);
+        }
     }
 
     private static PendingIntent pending(Context context, String id, int flags) {
@@ -107,36 +112,44 @@ public final class ReminderReceiver extends BroadcastReceiver {
     }
 
     @SuppressWarnings("deprecation")
-    private static void deliver(Context context, Entry entry) {
+    private static void deliver(Context context, ReminderEntry entry) {
         if (!notificationsAvailable(context)) return;
         PendingIntent open = PendingIntent.getActivity(context, 0,
                 new Intent(context, MainActivity.class), PendingIntent.FLAG_IMMUTABLE);
         Notification.Builder builder = Build.VERSION.SDK_INT >= 26
                 ? new Notification.Builder(context, CHANNEL) : new Notification.Builder(context);
+        String reminderText = entry.isRepeating()
+                ? ReminderSchedule.describe(entry.repeatDays) + "：" + entry.message : entry.message;
         builder.setSmallIcon(android.R.drawable.ic_popup_reminder)
                 .setContentTitle("愛狐說提醒")
-                .setContentText(entry.message)
-                .setStyle(new Notification.BigTextStyle().bigText(entry.message))
+                .setContentText(reminderText)
+                .setStyle(new Notification.BigTextStyle().bigText(reminderText))
                 .setContentIntent(open)
                 .setVisibility(Notification.VISIBILITY_PRIVATE)
                 .setAutoCancel(true);
         if (Build.VERSION.SDK_INT < 26) builder.setDefaults(Notification.DEFAULT_ALL);
         try {
             context.getSystemService(NotificationManager.class).notify(entry.id, 0, builder.build());
-            cancel(context, entry);
+            if (entry.isRepeating()) {
+                long nextDue = ReminderSchedule.nextDue(System.currentTimeMillis(), entry.repeatDays,
+                        entry.scheduleHour, entry.scheduleMinute, TimeZone.getDefault());
+                ReminderEntry next = new ReminderEntry(entry.id, nextDue, entry.message, entry.repeatDays,
+                        entry.scheduleHour, entry.scheduleMinute);
+                store(context).edit().putString(entry.id, next.encode()).commit();
+                schedule(context, next);
+            } else {
+                store(context).edit().remove(entry.id).commit();
+            }
         } catch (SecurityException ignored) {
             // Keep the reminder if notification access is revoked during delivery.
         }
     }
 
-    private static Entry decode(String id, String saved) {
-        if (saved == null) return null;
-        int separator = saved.indexOf('\n');
-        if (separator < 0) return null;
-        try {
-            return new Entry(id, Long.parseLong(saved.substring(0, separator)), saved.substring(separator + 1));
-        } catch (NumberFormatException invalid) {
-            return null;
+    private static void cancelAlarm(Context context, String id) {
+        PendingIntent alarm = pending(context, id, PendingIntent.FLAG_NO_CREATE);
+        if (alarm != null) {
+            context.getSystemService(AlarmManager.class).cancel(alarm);
+            alarm.cancel();
         }
     }
 
