@@ -32,10 +32,12 @@ final class WeatherLookup {
     static final class Request {
         final String place;
         final int days;
+        final int targetHour;
 
-        Request(String place, int days) {
+        Request(String place, int days, int targetHour) {
             this.place = place;
             this.days = days;
+            this.targetHour = targetHour;
         }
     }
 
@@ -47,8 +49,22 @@ final class WeatherLookup {
         if (prefix.matches()) query = prefix.group(1);
         else if (suffix.matches()) query = suffix.group(1).replaceFirst("^(查詢|查一下|查)", "");
         else return null;
-        int days = query.contains("後天") ? 2 : query.contains("明天") ? 1 : 0;
-        return new Request(query.replaceFirst("今天|明天|後天", ""), days);
+        int days = query.contains("後天") ? 2
+                : query.contains("明天") || query.contains("明晚") ? 1 : 0;
+        int targetHour = -1;
+        if (containsAny(query, "今晚", "今夜", "明晚", "晚上", "夜間", "夜晚", "深夜")) {
+            targetHour = 21;
+        } else if (query.contains("凌晨")) {
+            targetHour = 3;
+        } else if (containsAny(query, "早上", "上午", "中午", "下午", "白天", "清晨")) {
+            targetHour = 9;
+        }
+        String place = query.replace("後天", "").replace("明天", "").replace("明晚", "")
+                .replace("今天", "").replace("今晚", "").replace("今夜", "")
+                .replace("晚上", "").replace("夜間", "").replace("夜晚", "").replace("深夜", "")
+                .replace("凌晨", "").replace("早上", "").replace("上午", "")
+                .replace("中午", "").replace("下午", "").replace("白天", "").replace("清晨", "");
+        return new Request(place, days, targetHour);
     }
 
     static String dataset(String place) {
@@ -62,16 +78,22 @@ final class WeatherLookup {
         return null;
     }
 
-    static LookupAnswer search(String place, int days, String key) throws IOException, JSONException {
+    static LookupAnswer search(String place, int days, int targetHour, String key)
+            throws IOException, JSONException {
         String dataset = dataset(place);
         if (dataset == null) throw new IllegalArgumentException("County and district are required");
         String url = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/" + dataset
                 + "?Authorization=" + URLEncoder.encode(key, "UTF-8") + "&format=JSON";
         return answer(PublicDataClient.get(url, "application/json", 4 * 1024 * 1024, 15 * 60 * 1000L),
-                place, days, System.currentTimeMillis());
+                place, days, targetHour, System.currentTimeMillis());
     }
 
     static LookupAnswer answer(String json, String place, int days, long now) throws JSONException {
+        return answer(json, place, days, -1, now);
+    }
+
+    static LookupAnswer answer(String json, String place, int days, int targetHour, long now)
+            throws JSONException {
         JSONArray groups = new JSONObject(json).getJSONObject("records").getJSONArray("Locations");
         String key = normalize(place);
         for (int groupIndex = 0; groupIndex < groups.length(); groupIndex++) {
@@ -82,19 +104,20 @@ final class WeatherLookup {
                 JSONObject location = locations.getJSONObject(index);
                 String name = county + location.getString("LocationName");
                 if (normalize(name).equals(key)) {
-                    return forecast(location.getJSONArray("WeatherElement"), name, days, now);
+                    return forecast(location.getJSONArray("WeatherElement"), name, days, targetHour, now);
                 }
             }
         }
         return new LookupAnswer("找不到這個鄉鎮市區，請確認縣市和區名。", SOURCE);
     }
 
-    private static LookupAnswer forecast(JSONArray elements, String name, int days, long now) throws JSONException {
+    private static LookupAnswer forecast(JSONArray elements, String name, int days, int targetHour, long now)
+            throws JSONException {
         Calendar target = Calendar.getInstance(TAIPEI);
         target.setTimeInMillis(now);
-        if (days > 0) {
-            target.add(Calendar.DATE, days);
-            target.set(Calendar.HOUR_OF_DAY, 9);
+        if (days > 0) target.add(Calendar.DATE, days);
+        if (targetHour >= 0 || days > 0) {
+            target.set(Calendar.HOUR_OF_DAY, targetHour >= 0 ? targetHour : 9);
             target.set(Calendar.MINUTE, 0);
             target.set(Calendar.SECOND, 0);
             target.set(Calendar.MILLISECOND, 0);
@@ -132,5 +155,10 @@ final class WeatherLookup {
 
     private static String normalize(String text) {
         return Normalizer.normalize(text, Normalizer.Form.NFKC).replace('台', '臺').replaceAll("[\\s\\p{Z}]", "");
+    }
+
+    private static boolean containsAny(String text, String... terms) {
+        for (String term : terms) if (text.contains(term)) return true;
+        return false;
     }
 }

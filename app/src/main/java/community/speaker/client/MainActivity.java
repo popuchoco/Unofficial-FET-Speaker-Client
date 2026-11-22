@@ -655,7 +655,7 @@ public final class MainActivity extends AppCompatActivity {
             speakAssistantStatus(credentialErrorOr("請先在服務設定輸入中央氣象署授權碼。"));
         } else {
             startLookup("正在查詢氣象署預報…", "無法取得天氣預報，請確認授權碼或稍後再試。",
-                    () -> WeatherLookup.search(place, request.days, key));
+                    () -> WeatherLookup.search(place, request.days, request.targetHour, key));
         }
     }
 

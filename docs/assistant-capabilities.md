@@ -16,7 +16,7 @@ Gemini API 使用 Google AI Studio／Cloud 專案 API 金鑰；Google 官方明�
 
 | 功能 | 資料與接法 | 語音回覆與驗收 |
 | --- | --- | --- |
-| 台灣天氣 | 已串中央氣象署各縣市鄉鎮一週預報；使用者在裝置設定個人授權碼，並以 Android Keystore 加密保存 | 使用預設鄉鎮或語句中的完整縣市與區名；支援今天目前時段、明天白天、後天白天，依氣象署摘要播報。正式授權連線待集中驗收 |
+| 台灣天氣 | 已串中央氣象署各縣市鄉鎮一週預報；使用者在裝置設定個人授權碼，並以 Android Keystore 加密保存 | 使用裝置設定的預設鄉鎮，或語句中的完整縣市與區名；支援今天目前時段，以及今天至後天明確指定白天或夜間。未指定時段的明天、後天預設白天；依氣象署涵蓋區間播報摘要，預報發布後已過去的時段不會補列。正式授權連線待集中驗收 |
 | 空氣品質 | 已接環境部 AQI 資料集 `AQX_P_432`。由使用者輸入個人授權碼，以 Android Keystore 加密保存；正式授權連線留待集中驗收 | 直接指定測站，或依縣市列出可選站點；報測站、AQI、等級和發布時間。缺值及超過三小時的資料皆會標明 |
 | 台股 | 已用證交所與櫃買中心 OpenAPI 接上市、上櫃盤後行情；倚天股市原授權與即時行情另外驗證 | 支援公司名稱、代號。報最近交易日、收盤價與漲跌，標明「收盤」；即時價格需另有授權來源 |
 | 維基百科 | 已接繁中維基百科 REST 搜尋與條目摘要，依規範送出 User-Agent；僅在明確百科指令時查詢 | 找到多個同名詞條時先補問；音箱播最合適詞條的短摘要，App 顯示來源連結 |
@@ -52,6 +52,7 @@ Gemini API 使用 Google AI Studio／Cloud 專案 API 金鑰；Google 官方明�
 ## 來源
 
 - [中央氣象署開發指南](https://opendata.cwa.gov.tw/devManual/description)
+- [中央氣象署鄉鎮預報時段說明](https://opendata.cwa.gov.tw/faq)（逐 12 小時時段原則為 06:00–18:00 與 18:00–06:00；實際涵蓋依發布時間調整）
 - [環境部開放資料 API](https://data.moenv.gov.tw/paradigm)
 - [臺灣證交所 OpenAPI](https://openapi.twse.com.tw/) · [櫃買中心 OpenAPI](https://www.tpex.org.tw/openapi/)
 - [MediaWiki REST API 使用規範](https://www.mediawiki.org/wiki/API:REST_API/Policies)
