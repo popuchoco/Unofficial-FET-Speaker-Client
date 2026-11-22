@@ -47,7 +47,7 @@ final class ReminderRequest {
 
     static ReminderRequest parse(String speech, long nowMillis, TimeZone timeZone) {
         if (!speech.contains("提醒我")) return null;
-        String normalized = Normalizer.normalize(speech.trim(), Normalizer.Form.NFKC);
+        String normalized = SpeechPrefix.strip(Normalizer.normalize(speech.trim(), Normalizer.Form.NFKC));
         Matcher match = REQUEST.matcher(normalized);
         if (match.matches()) {
             String message = match.group(2).replaceFirst("[。！？!?]+$", "").trim();

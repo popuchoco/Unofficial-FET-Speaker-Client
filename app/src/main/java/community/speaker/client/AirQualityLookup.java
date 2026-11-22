@@ -29,7 +29,7 @@ final class AirQualityLookup {
     private AirQualityLookup() {}
 
     static String place(String speech) {
-        String query = normalize(speech).replaceFirst("[?？。！!]+$", "").replaceFirst("^(請幫我|幫我|請)", "");
+        String query = SpeechPrefix.strip(normalize(speech)).replaceFirst("[?？。！!]+$", "");
         Matcher prefix = PREFIX.matcher(query);
         if (prefix.matches()) return prefix.group(1);
         Matcher suffix = SUFFIX.matcher(query);

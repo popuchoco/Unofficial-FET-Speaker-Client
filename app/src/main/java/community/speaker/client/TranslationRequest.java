@@ -24,8 +24,8 @@ final class TranslationRequest {
     }
 
     static TranslationRequest parse(String input) {
-        String normalized = Normalizer.normalize(input.trim(), Normalizer.Form.NFKC)
-                .replaceAll("[。.!?！？]+$", "");
+        String normalized = SpeechPrefix.strip(Normalizer.normalize(input.trim(), Normalizer.Form.NFKC)
+                .replaceAll("[。.!?！？]+$", ""));
         Matcher command = COMMAND.matcher(normalized);
         if (!command.matches()) return null;
         String text = command.group(1).replaceAll("^[「『\\\"']|[」』\\\"']$", "").trim();

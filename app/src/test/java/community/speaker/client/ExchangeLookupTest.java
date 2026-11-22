@@ -15,6 +15,7 @@ public class ExchangeLookupTest {
         assertTrue(answer.text.contains("結果僅供參考"));
         assertTrue(answer.text.contains("查詢時間"));
         assertEquals(ExchangeLookup.SOURCE, answer.source);
+        assertEquals("USD", ExchangeLookup.parse("請問一百美元換臺幣").from);
     }
 
     @Test public void usesBankSellQuoteForTaiwanDollarToForeignCash() throws Exception {

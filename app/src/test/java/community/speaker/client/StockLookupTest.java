@@ -9,6 +9,7 @@ public class StockLookupTest {
         assertEquals("2330", StockLookup.symbol("請幫我查台股 ２３３０。"));
         assertEquals("台積電", StockLookup.symbol("台積電的收盤價是多少？"));
         assertEquals("台積電", StockLookup.symbol("查詢股價：台積電"));
+        assertEquals("台積電", StockLookup.symbol("請問台積電的收盤價是多少？"));
         assertEquals("", StockLookup.symbol("查台股"));
         assertNull(StockLookup.symbol("台積電是什麼公司"));
     }

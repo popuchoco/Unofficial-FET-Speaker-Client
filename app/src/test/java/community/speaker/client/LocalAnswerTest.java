@@ -17,6 +17,7 @@ public class LocalAnswerTest {
 
     @Test public void respondsWithLocalTimeAndDate() {
         assertEquals("現在是19點05分。", answer("請問現在幾點？"));
+        assertEquals("現在是19點05分。", answer("麻煩請幫我請問一下現在幾點？"));
         assertTrue(answer("今天星期幾").contains("2026年11月21日"));
         assertEquals("昨天是2026年11月20日星期五。", answer("昨天是星期幾？"));
         assertEquals("明天是2026年11月22日星期日。", answer("明天幾月幾號"));

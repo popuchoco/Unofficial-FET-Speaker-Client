@@ -18,6 +18,7 @@ public class ClockRequestTest {
         assertAlarm("凌晨零點半鬧鐘", 0, 30);
         assertAlarm("設定鬧鐘18:05", 18, 5);
         assertAlarm("設定鬧鐘08:10", 8, 10);
+        assertAlarm("請問幫我設個早上七點鬧鐘", 7, 0);
     }
 
     @Test public void asksAboutUnclearOrUnsupportedAlarms() {

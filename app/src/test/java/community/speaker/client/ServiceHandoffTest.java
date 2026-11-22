@@ -14,6 +14,7 @@ public class ServiceHandoffTest {
         assertEquals(ServiceHandoff.PUBLIC_NEWS, ServiceHandoff.parse("播放公視新聞"));
         assertEquals(ServiceHandoff.KKBOX, ServiceHandoff.parse("開啟 KKBOX 音樂"));
         assertEquals(ServiceHandoff.SPOTIFY, ServiceHandoff.parse("打開 Spotify"));
+        assertEquals(ServiceHandoff.SPOTIFY, ServiceHandoff.parse("請問一下打開 Spotify"));
     }
 
     @Test public void ignoresQuestionsAndOtherCommands() {

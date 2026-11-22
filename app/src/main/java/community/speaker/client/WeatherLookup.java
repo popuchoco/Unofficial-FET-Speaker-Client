@@ -42,7 +42,8 @@ final class WeatherLookup {
     }
 
     static Request parse(String speech) {
-        String normalized = normalize(speech).replaceFirst("[?？。！!]+$", "").replaceFirst("^(請幫我|幫我|請)", "");
+        String normalized = SpeechPrefix.strip(normalize(speech))
+                .replaceFirst("[?？。！!]+$", "");
         Matcher prefix = PREFIX.matcher(normalized);
         Matcher suffix = SUFFIX.matcher(normalized);
         String query;

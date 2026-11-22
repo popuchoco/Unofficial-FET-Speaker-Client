@@ -11,6 +11,7 @@ public class AlarmManagementRequestTest {
         assertTrue(AlarmManagementRequest.shouldShowAlarms("請幫我取消所有鬧鐘"));
         assertTrue(AlarmManagementRequest.shouldShowAlarms("取消明天早上的鬧鐘"));
         assertTrue(AlarmManagementRequest.shouldShowAlarms("打開我的鬧鐘清單"));
+        assertTrue(AlarmManagementRequest.shouldShowAlarms("請問一下查看鬧鐘"));
     }
 
     @Test public void leavesNewAlarmAndUnrelatedRequestsToTheirHandlers() {

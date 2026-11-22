@@ -18,9 +18,9 @@ enum ServiceHandoff {
     }
 
     static ServiceHandoff parse(String speech) {
-        String command = Normalizer.normalize(speech, Normalizer.Form.NFKC)
+        String command = SpeechPrefix.strip(Normalizer.normalize(speech, Normalizer.Form.NFKC)
                 .replaceAll("[\\s\\p{Z}]", "").replaceFirst("[。！？?!]+$", "")
-                .replaceFirst("^(請幫我|幫我|請)", "");
+        );
         if (command.matches("(開啟|打開)(?i:KKBOX)(?:音樂)?")) return KKBOX;
         if (command.matches("(開啟|打開)(?i:Spotify)(?:音樂)?")) return SPOTIFY;
         if (command.matches("(?:(開啟|打開)?(?i:LINEGO|TAXIGO)|叫(?i:TAXIGO))"

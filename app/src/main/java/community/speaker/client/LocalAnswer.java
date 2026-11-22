@@ -48,10 +48,9 @@ final class LocalAnswer {
     private LocalAnswer() {}
 
     static String reply(String input, Calendar now) {
-        String query = Normalizer.normalize(input, Normalizer.Form.NFKC)
+        String query = SpeechPrefix.strip(Normalizer.normalize(input, Normalizer.Form.NFKC)
                 .replaceAll("[\\s\\p{Z}]", "")
-                .replaceAll("[?？!！。]+$", "")
-                .replaceFirst("^(請問|請幫我|幫我)", "");
+                .replaceAll("[?？!！。]+$", ""));
         if (query.matches("(現在)?(是)?幾點(鐘|了)?|現在時間")) {
             return "現在是" + formatted(now, "HH點mm分") + "。";
         }

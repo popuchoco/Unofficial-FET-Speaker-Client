@@ -17,6 +17,7 @@ public class AirQualityLookupTest {
     @Test public void recognizesStationPrefixesAndNaturalQuestions() {
         assertEquals("松山", AirQualityLookup.place("請查空氣品質 松山"));
         assertEquals("台北市松山", AirQualityLookup.place("臺北市松山的空氣品質如何？"));
+        assertEquals("台北市松山", AirQualityLookup.place("請問臺北市松山的空氣品質如何？"));
         assertEquals("", AirQualityLookup.place("AQI"));
         assertNull(AirQualityLookup.place("查維基百科"));
     }

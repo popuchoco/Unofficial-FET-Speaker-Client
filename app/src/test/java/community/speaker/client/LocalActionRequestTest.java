@@ -10,6 +10,7 @@ public class LocalActionRequestTest {
         assertEquals(LocalActionRequest.Action.OPEN_MAILBOX, LocalActionRequest.parse("家庭留言"));
         assertEquals(LocalActionRequest.Action.OPEN_MAILBOX, LocalActionRequest.parse("請幫我查看本機留言清單"));
         assertEquals(LocalActionRequest.Action.OPEN_MAILBOX, LocalActionRequest.parse("播放家庭留言"));
+        assertEquals(LocalActionRequest.Action.OPEN_MAILBOX, LocalActionRequest.parse("請問一下查看家庭留言"));
     }
 
     @Test public void startsRecordingOnlyForExplicitMailboxRecordingRequests() {

@@ -8,6 +8,7 @@ import static org.junit.Assert.assertNull;
 public class ReminderActionRequestTest {
     @Test public void recognizesNearestAndNumberedReminderCancellation() {
         assertEquals(1, ReminderActionRequest.parse("取消下一個提醒").number);
+        assertEquals(1, ReminderActionRequest.parse("請問一下取消下一個提醒").number);
         assertEquals(1, ReminderActionRequest.parse("刪除最近的本機提醒事項").number);
         assertEquals(2, ReminderActionRequest.parse("請幫我取消第二筆提醒").number);
         assertEquals(12, ReminderActionRequest.parse("刪掉第十二個提醒").number);

@@ -56,8 +56,9 @@ final class ExchangeLookup {
     }
 
     static Request parse(String input) {
-        String normalized = Normalizer.normalize(input, Normalizer.Form.NFKC).toUpperCase(Locale.ROOT)
-                .replace('台', '臺').replaceAll("[\\s\\p{Z}]", "").replaceFirst("[。?!！？]+$", "");
+        String normalized = SpeechPrefix.strip(Normalizer.normalize(input, Normalizer.Form.NFKC)
+                .toUpperCase(Locale.ROOT).replace('台', '臺')
+                .replaceAll("[\\s\\p{Z}]", "").replaceFirst("[。?!！？]+$", ""));
         Matcher match = CONVERSION.matcher(normalized);
         if (!match.matches()) return null;
         String from = CURRENCIES.get(match.group(3));

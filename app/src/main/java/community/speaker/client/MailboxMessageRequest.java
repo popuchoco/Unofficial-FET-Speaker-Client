@@ -22,9 +22,8 @@ final class MailboxMessageRequest {
 
     static MailboxMessageRequest parse(String speech) {
         if (speech == null) return null;
-        String query = Normalizer.normalize(speech, Normalizer.Form.NFKC)
-                .replaceAll("[\\s\\p{Z}，。！？?!,]", "")
-                .replaceFirst("^(請問|請幫我|幫我|請|麻煩|我要|我想)", "");
+        String query = SpeechPrefix.strip(Normalizer.normalize(speech, Normalizer.Form.NFKC)
+                .replaceAll("[\\s\\p{Z}，。！？?!,]", ""));
         query = LocalAnswer.replaceChineseNumbers(query);
         Matcher play = PLAY.matcher(query);
         if (play.matches()) return request(Action.PLAY, play.group(1));

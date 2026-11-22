@@ -21,9 +21,9 @@ final class StockLookup {
     private StockLookup() {}
 
     static String symbol(String speech) {
-        String query = Normalizer.normalize(speech, Normalizer.Form.NFKC)
+        String query = SpeechPrefix.strip(Normalizer.normalize(speech, Normalizer.Form.NFKC)
                 .replaceAll("[\\s\\p{Z}]", "").replaceFirst("[?？。！!]+$", "")
-                .replaceFirst("^(請幫我|幫我|請)", "");
+        );
         Matcher prefix = PREFIX.matcher(query);
         String term;
         if (prefix.matches()) {

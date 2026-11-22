@@ -25,6 +25,9 @@ public class ReminderRequestTest {
         request = ReminderRequest.parse("一刻鐘後提醒我拿包裹");
         assertEquals(900, request.seconds);
         assertEquals("拿包裹", request.message);
+
+        request = ReminderRequest.parse("請問一下三分鐘後提醒我關火");
+        assertEquals(180, request.seconds);
     }
 
     @Test public void requiresActionAndDuration() {

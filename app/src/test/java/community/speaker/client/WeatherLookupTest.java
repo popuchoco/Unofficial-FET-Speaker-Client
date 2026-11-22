@@ -32,6 +32,7 @@ public class WeatherLookupTest {
         assertEquals("臺北市信義區", tonight.place);
         assertEquals(0, tonight.days);
         assertEquals(21, tonight.targetHour);
+        assertEquals("臺北市信義區", WeatherLookup.parse("請問幫我查台北市信義區今晚天氣").place);
 
         WeatherLookup.Request tomorrowNight = WeatherLookup.parse("查詢臺北市信義區明天晚上天氣");
         assertEquals("臺北市信義區", tomorrowNight.place);

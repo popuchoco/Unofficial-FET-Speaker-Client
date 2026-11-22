@@ -10,6 +10,8 @@ public class MailboxMessageRequestTest {
         MailboxMessageRequest latest = MailboxMessageRequest.parse("播放最新留言");
         assertEquals(MailboxMessageRequest.Action.PLAY, latest.action);
         assertEquals(1, latest.number);
+        assertEquals(MailboxMessageRequest.Action.PLAY,
+                MailboxMessageRequest.parse("請問一下播放最新留言").action);
 
         MailboxMessageRequest numbered = MailboxMessageRequest.parse("請幫我聽聽第二則家庭留言");
         assertEquals(MailboxMessageRequest.Action.PLAY, numbered.action);

@@ -17,6 +17,7 @@ public class TranslationRequestTest {
         assertEquals("en", TranslationRequest.parse("請將 good morning 翻譯成英文").targetCode);
         assertEquals("zh-TW", TranslationRequest.parse("把 Hello 翻成繁體中文").targetCode);
         assertEquals("zh-CN", TranslationRequest.parse("把 Hello 翻成簡體中文").targetCode);
+        assertEquals("你好", TranslationRequest.parse("請問一下把你好翻成日文").text);
     }
 
     @Test public void acceptsPapagoSupportedTargetsAndSpeechLocales() {

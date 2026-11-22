@@ -20,9 +20,8 @@ final class LocalActionRequest {
 
     static Action parse(String speech) {
         if (speech == null) return null;
-        String query = Normalizer.normalize(speech, Normalizer.Form.NFKC)
-                .replaceAll("[\\s\\p{Z}，。！？?!,]", "")
-                .replaceFirst("^(請問|請幫我|幫我|請|麻煩|我要|我想)", "");
+        String query = SpeechPrefix.strip(Normalizer.normalize(speech, Normalizer.Form.NFKC)
+                .replaceAll("[\\s\\p{Z}，。！？?!,]", ""));
         if (RECORD_MAILBOX.matcher(query).matches()) return Action.RECORD_MAILBOX;
         if (MAILBOX.matcher(query).matches()) return Action.OPEN_MAILBOX;
         if (REMINDERS.matcher(query).matches()) return Action.OPEN_REMINDERS;

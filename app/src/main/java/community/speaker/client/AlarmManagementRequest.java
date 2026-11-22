@@ -14,9 +14,8 @@ final class AlarmManagementRequest {
 
     static boolean shouldShowAlarms(String speech) {
         if (speech == null) return false;
-        String query = Normalizer.normalize(speech, Normalizer.Form.NFKC)
-                .replaceAll("[\\s\\p{Z}，。！？?!,]", "")
-                .replaceFirst("^(請問|請幫我|幫我|請|麻煩|我要|我想)", "");
+        String query = SpeechPrefix.strip(Normalizer.normalize(speech, Normalizer.Form.NFKC)
+                .replaceAll("[\\s\\p{Z}，。！？?!,]", ""));
         return SHOW_ALARMS.matcher(query).matches() || CANCEL_ALARM.matcher(query).matches();
     }
 }

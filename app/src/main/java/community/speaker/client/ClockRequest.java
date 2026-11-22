@@ -42,9 +42,9 @@ final class ClockRequest {
     }
 
     static ClockRequest parse(String speech) {
-        String normalized = Normalizer.normalize(speech, Normalizer.Form.NFKC)
+        String normalized = SpeechPrefix.strip(Normalizer.normalize(speech, Normalizer.Form.NFKC)
                 .replaceAll("[\\s\\p{Z}，。！？?!,]", "")
-                .replaceFirst("^(請幫我|幫我|請)", "");
+        );
         boolean timer = normalized.contains("倒數") || normalized.contains("計時");
         boolean alarm = normalized.contains("鬧鐘") || normalized.contains("叫醒我");
         if (!timer && !alarm) return null;

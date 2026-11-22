@@ -6,6 +6,7 @@ import org.json.JSONObject;
 
 import java.io.IOException;
 import java.net.URLEncoder;
+import java.text.Normalizer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -18,7 +19,8 @@ final class WikipediaLookup {
     private WikipediaLookup() {}
 
     static String topic(String input) {
-        Matcher match = ASK.matcher(input.trim());
+        String query = SpeechPrefix.strip(Normalizer.normalize(input.trim(), Normalizer.Form.NFKC));
+        Matcher match = ASK.matcher(query);
         if (!match.matches()) return null;
         return match.group(1).trim().replaceFirst("[。？！?!]+$", "").trim();
     }
